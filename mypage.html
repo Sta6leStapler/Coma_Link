@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>マイページ | Coma‑Link</title>
+  <style>
+    :root {
+      --bg: #f9f9f9;
+      --fg: #333;
+      --panel: #fff;
+      --border: #ddd;
+      --highlight: #b2fab4;
+      --primary: #2196f3;
+    }
+    html[data-theme="dark"] {
+      --bg: #2b2b2b;
+      --fg: #ddd;
+      --panel: #3b3b3b;
+      --border: #555;
+      --highlight: #4caf50;
+      --primary: #1976d2;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ——— ヘッダー ——— */
+    header {
+      background: var(--panel);
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.2em; margin:0; }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-controls button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--fg);
+    }
+    .header-controls button.logout {
+      font-size: 14px;
+      padding: 4px 8px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 4px;
+    }
+
+    /* ——— ナビ ——— */
+    .toolbar {
+      display: flex;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar button {
+      flex: 1;
+      padding: 8px;
+      background: var(--panel);
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .toolbar button.active {
+      background: var(--highlight);
+      color: #fff;
+    }
+
+    /* ——— コンテンツ ——— */
+    main {
+      flex: 1;
+      padding: 20px;
+    }
+    h2 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #eee;
+    }
+  </style>
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header>
+    <h1>Coma‑Link</h1>
+    <div class="header-controls">
+      <button id="themeToggle">🌙</button>
+      <button class="logout" id="logoutBtn">ログアウト</button>
+    </div>
+  </header>
+
+  <!-- ナビゲーション -->
+  <div class="toolbar">
+    <button onclick="location.href='jikanwari.html'">時間割</button>
+    <button onclick="location.href='calendar.html'">カレンダー</button>
+    <button onclick="location.href='connect.html'">つながる</button>
+    <button onclick="location.href='chat.html'">チャット</button>
+    <button class="active">マイページ</button>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <main>
+    <h1>ようこそ、<span id="userName"></span> さん！</h1>
+
+    <!-- 今日の授業 -->
+    <section>
+      <h2>今日の時間割（授業）</h2>
+      <table id="ttTable">
+        <thead>
+          <tr>
+            <th>曜日</th>
+            <th>限</th>
+            <th>授業名／教室</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- JavaScript で埋め込み -->
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 今日のコマ時間 -->
+    <section>
+      <h2>今日のコマ時間</h2>
+      <table id="comaTable">
+        <thead>
+          <tr>
+            <th>曜日</th>
+            <th>開始</th>
+            <th>終了</th>
+            <th>内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- JavaScript で埋め込み -->
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    // --- ログインチェック & ユーザー名表示 ---
+    const user = localStorage.getItem('coma_user');
+    if (!user) {
+      alert('ログインしてください');
+      location.href = 'login.html';
+    }
+    document.getElementById('userName').textContent = user;
+
+    // --- ログアウト処理 ---
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('coma_user');
+      location.href = 'login.html';
+    });
+
+    // --- API ベース URL ---
+    const API = 'http://127.0.0.1:5000';
+
+    // --- 今日の曜日を日本語で取得 ---
+    const jpWeek = ['日','月','火','水','木','金','土'];
+    const today = new Date();
+    const todayJP = jpWeek[today.getDay()];
+
+    // --- テーブル要素取得 ---
+    const ttBody = document.querySelector('#ttTable tbody');
+    const comaBody = document.querySelector('#comaTable tbody');
+
+    // --- 今日の授業取得 & 描画 ---
+    async function loadCourses() {
+      const res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
+      const list = await res.json();
+      const todayList = list.filter(c => c.day === todayJP);
+      ttBody.innerHTML = '';
+      if (todayList.length) {
+        todayList.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${c.day}</td>
+            <td>${c.slot}限</td>
+            <td>${c.content || '-'}</td>
+          `;
+          ttBody.appendChild(tr);
+        });
+      } else {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3">今日の授業は登録されていません</td>`;
+        ttBody.appendChild(tr);
+      }
+    }
+
+    // --- 今日のコマ時間取得 & 描画 ---
+    async function loadComas() {
+      const res = await fetch(`${API}/custom_slots?username=${encodeURIComponent(user)}`);
+      const list = await res.json();
+      const todayList = list.filter(c => c.day === todayJP);
+      comaBody.innerHTML = '';
+      if (todayList.length) {
+        todayList.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${c.day}</td>
+            <td>${c.start_time}</td>
+            <td>${c.end_time}</td>
+            <td>${c.content || '-'}</td>
+          `;
+          comaBody.appendChild(tr);
+        });
+      } else {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4">今日のコマ時間は登録されていません</td>`;
+        comaBody.appendChild(tr);
+      }
+    }
+
+    // --- テーマ切替 ---
+    const tt = document.getElementById('themeToggle');
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      tt.textContent = t === 'light' ? '🌙' : '☀️';
+      localStorage.setItem('coma_theme', t);
+    }
+    tt.addEventListener('click', () => {
+      applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+    applyTheme(localStorage.getItem('coma_theme') || 'light');
+
+    // --- 初期ロード ---
+    loadCourses();
+    loadComas();
+  </script>
+</body>
+</html>

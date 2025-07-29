@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Coma‑Link 時間割マッチング</title>
+  <style>
+    :root {
+      --bg: #f5f5f5; --fg: #333; --panel: #fff; --border: #ddd;
+      --highlight: #b2fab4; --primary: #2196f3; --overlay: rgba(0,0,0,0.3);
+      --start-hour:8; --end-hour:20; --slot-height:30px;
+    }
+    html[data-theme="dark"] {
+      --bg:#2b2b2b;--fg:#ddd;--panel:#3b3b3b;--border:#555;
+      --highlight:#4caf50;--primary:#1976d2;--overlay:rgba(0,0,0,0.5);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:Arial,sans-serif;background:var(--bg);color:var(--fg);
+         display:flex;flex-direction:column;height:100vh;}
+    header{background:var(--panel);padding:10px;display:flex;
+           justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+    header h1{font-size:1.2em;}
+    header button{background:none;border:none;cursor:pointer;font-size:20px;color:var(--fg);}
+    .toolbar{display:flex;border-bottom:1px solid var(--border);}
+    .toolbar button{flex:1;padding:8px;background:var(--panel);
+                    border:none;cursor:pointer;font-size:14px;}
+    .toolbar button.active{background:var(--highlight);color:#fff;}
+
+    /* 日付ナビ */
+    .date-nav{display:flex;align-items:center;gap:8px;
+              background:var(--panel);padding:8px;border-bottom:1px solid var(--border);}
+    .date-nav button{padding:6px 12px;border:none;border-radius:4px;
+                     background:var(--primary);color:#fff;cursor:pointer;}
+    .date-nav input[type="date"]{padding:6px;border:1px solid var(--border);
+                                  border-radius:4px;background:var(--bg);color:var(--fg);}
+
+    /* 曜日ヘッダー */
+    .header-row{display:flex;border-bottom:1px solid var(--border);}
+    .time-header{width:50px;flex:0 0 50px;border-right:1px solid var(--border);}
+    .day-name{flex:1;text-align:center;padding:6px 0;background:var(--panel);
+              border-right:1px solid var(--border);font-weight:bold;}
+    .day-name:last-child{border-right:none;}
+    .date-name{flex:1;text-align:center;padding:2px 0;background:var(--panel);
+               font-size:12px;color:#555;border-right:1px solid var(--border);}
+    .date-name:last-child{border-right:none;}
+
+    /* スケジュール */
+    .schedule-wrapper{position:relative;flex:1;display:flex;overflow:auto;background:var(--panel);}
+    .time-column{width:50px;position:sticky;left:0;background:var(--panel);
+                 border-right:1px solid var(--border);z-index:2;}
+    .time-column div{height:var(--slot-height);border-bottom:1px solid var(--border);
+                     display:flex;align-items:center;justify-content:flex-end;
+                     padding-right:4px;font-size:12px;}
+    .days-column{flex:1;display:flex;position:relative;}
+    .day-column{flex:1;position:relative;border-right:1px solid var(--border);
+                height:calc((var(--end-hour)-var(--start-hour))*2*var(--slot-height));}
+    .day-column:last-child{border-right:none;}
+    .grid-bg{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;
+             background-size:100% var(--slot-height);
+             background-image:linear-gradient(to bottom,
+               transparent,transparent calc(100% - 1px),
+               #eee calc(100% - 1px),#eee);}
+    .course-block{position:absolute;left:4px;right:4px;background:var(--highlight);
+                  border-radius:4px;padding:2px 4px;font-size:12px;overflow:hidden;pointer-events:none;}
+    .sel-block{position:absolute;left:0;right:0;background:rgba(255,215,0,0.4);
+                pointer-events:none;}
+
+    /* 操作パネル */
+    .action-panel{background:var(--panel);border-top:1px solid var(--border);
+                  padding:8px;display:flex;align-items:center;gap:8px;}
+    .action-panel button{border:none;cursor:pointer;padding:8px 12px;
+                         border-radius:4px;background:var(--primary);color:#fff;}
+
+    /* モーダル */
+    #modalOverlay{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;
+                  background:var(--overlay);z-index:4;}
+    #courseModal{display:none;position:fixed;top:50%;left:50%;
+                 transform:translate(-50%,-50%);background:var(--panel);
+                 padding:20px;border-radius:8px;box-shadow:0 4px 8px var(--shadow);z-index:5;}
+    #courseModal label{display:flex;align-items:center;margin-bottom:8px;}
+    #courseModal select,#courseModal input[type="time"],#courseModal input[type="text"]{
+      width:100%;margin-bottom:10px;padding:6px;border:1px solid var(--border);
+      border-radius:4px;background:var(--bg);color:var(--fg);}
+    #courseModal button{margin-right:8px;padding:6px 12px;cursor:pointer;}
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>時間割マッチング</h1>
+    <button id="themeToggle">🌙</button>
+  </header>
+
+  <div class="toolbar">
+    <button class="active">時間割</button>
+    <button onclick="location.href='3.html'">カレンダー</button>
+    <button onclick="location.href='4.html'">つながる</button>
+    <button onclick="location.href='5.html'">チャット</button>
+    <button onclick="location.href='mypage.html'">マイページ</button>
+  </div>
+
+  <div class="date-nav">
+    <button id="prevWeek">◀ 前週</button>
+    <button id="thisWeek">当週</button>
+    <button id="nextWeek">次週 ▶</button>
+    <input type="date" id="pickDate"/>
+  </div>
+
+  <div id="weekdayRow" class="header-row">
+    <div class="time-header"></div>
+    <div class="day-name">月</div><div class="day-name">火</div>
+    <div class="day-name">水</div><div class="day-name">木</div>
+    <div class="day-name">金</div>
+  </div>
+  <div id="dateRow" class="header-row">
+    <div class="time-header"></div>
+    <div class="date-name" id="d0"></div>
+    <div class="date-name" id="d1"></div>
+    <div class="date-name" id="d2"></div>
+    <div class="date-name" id="d3"></div>
+    <div class="date-name" id="d4"></div>
+  </div>
+
+  <div class="schedule-wrapper">
+    <div class="time-column" id="timeColumn"></div>
+    <div class="days-column" id="daysContainer"></div>
+    <button class="add-inline add-button" onclick="openModal()">＋</button>
+  </div>
+
+  <div class="action-panel">
+    <button onclick="openModal()">追加／削除</button>
+    <ul id="results"></ul>
+  </div>
+
+  <div id="modalOverlay" onclick="closeModal()"></div>
+  <div id="courseModal">
+    <h3>コマ設定</h3>
+    <label><input type="radio" name="kind" value="slot" checked> 既定コマ</label>
+    <label><input type="radio" name="kind" value="custom"> カスタムコマ</label>
+    <div id="slotPart">
+      <select id="daySelect">
+        <option>月</option><option>火</option><option>水</option>
+        <option>木</option><option>金</option>
+      </select>
+      <select id="slotSelect">
+        <option value="1">1限</option><option value="2">2限</option>
+        <option value="3">3限</option><option value="4">4限</option>
+        <option value="5">5限</option>
+      </select>
+      <input type="text" id="courseInput" placeholder="授業名 / 教室"/>
+    </div>
+    <div id="customPart" style="display:none;">
+      <select id="daySelect2">
+        <option>月</option><option>火</option><option>水</option>
+        <option>木</option><option>金</option>
+      </select>
+      <input type="time" id="startTime"/>〜<input type="time" id="endTime"/>
+      <input type="text" id="customInput" placeholder="内容（例：ゼミ）"/>
+    </div>
+    <button onclick="saveCourse()">保存</button>
+    <button onclick="deleteCourse()">削除</button>
+    <button onclick="closeModal()">キャンセル</button>
+  </div>
+
+<script>
+  // API 先頭
+  const API = 'http://127.0.0.1:5000';
+
+  // ログインチェック
+  const user = localStorage.getItem('coma_user');
+  if(!user){ alert('ログインしてください'); location.href='login.html'; }
+
+  // 定数
+  const startH=8,endH=20;
+  const slotH=parseInt(getComputedStyle(document.documentElement)
+                .getPropertyValue('--slot-height'));
+  const totalMins=(endH-startH)*60;
+  const totalHeight=(endH-startH)*2*slotH;
+  const periodTimes={1:{start:'09:00',end:'10:30'},2:{start:'10:40',end:'12:10'},
+                     3:{start:'13:00',end:'14:30'},4:{start:'14:40',end:'16:10'},
+                     5:{start:'16:15',end:'17:45'}};
+  const days=['月','火','水','木','金'];
+  const dayMapEng={'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri'};
+
+  // DOM
+  const timeCol=document.getElementById('timeColumn'),
+        daysCon=document.getElementById('daysContainer'),
+        resultsUl=document.getElementById('results');
+  const dEls = [0,1,2,3,4].map(i=>document.getElementById('d'+i));
+
+  // 週管理
+  let baseMonday = getMonday(new Date());
+
+  document.getElementById('prevWeek').onclick = ()=>{
+    baseMonday.setDate(baseMonday.getDate()-7);
+    renderDates(); loadCourses();
+  };
+  document.getElementById('nextWeek').onclick = ()=>{
+    baseMonday.setDate(baseMonday.getDate()+7);
+    renderDates(); loadCourses();
+  };
+  document.getElementById('thisWeek').onclick = ()=>{
+    baseMonday = getMonday(new Date());
+    renderDates(); loadCourses();
+  };
+  document.getElementById('pickDate').onchange = e=>{
+    const d=new Date(e.target.value);
+    baseMonday = getMonday(d);
+    renderDates(); loadCourses();
+  };
+
+  // 曜日＋日付ヘッダー描画
+  function renderDates(){
+    for(let i=0;i<5;i++){
+      const d=new Date(baseMonday);
+      d.setDate(baseMonday.getDate()+i);
+      dEls[i].textContent = `${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}`;
+    }
+  }
+
+  function getMonday(d){
+    const day = d.getDay(), diff = (day+6)%7;
+    const m=new Date(d);
+    m.setDate(d.getDate()-diff);
+    return m;
+  }
+
+  // 時間軸＆列準備
+  for(let h=startH;h<endH;h++){
+    ['00','30'].forEach(mm=>{
+      const div=document.createElement('div');
+      div.textContent=`${h}:${mm}`; div.style.height=slotH+'px';
+      timeCol.appendChild(div);
+    });
+  }
+  days.forEach(day=>{
+    const col=document.createElement('div');
+    col.className='day-column'; col.dataset.day=day;
+    const bg=document.createElement('div');
+    bg.className='grid-bg'; bg.style.height=totalHeight+'px';
+    col.appendChild(bg); daysCon.appendChild(col);
+  });
+
+  // データ読み込み＆描画
+  let customList=[];
+  async function loadCourses(){
+    // 既存クリア
+    daysCon.querySelectorAll('.course-block,.sel-block').forEach(e=>e.remove());
+    // 既定コマ
+    let res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
+    let arr = await res.json();
+    arr.forEach(c=>drawBlock(c.day,periodTimes[c.slot],c.content));
+    // カスタムコマ
+    res = await fetch(`${API}/custom_slots?username=${encodeURIComponent(user)}`);
+    customList = await res.json();
+    customList.forEach(c=>drawBlockCustom(c.day,c.start_time,c.end_time,c.content));
+  }
+  function drawBlock(day,def,text){
+    const [sh,sm]=def.start.split(':'),[eh,em]=def.end.split(':');
+    const sMin=(+sh*60+ +sm)-startH*60;
+    const dMin=(+eh*60+ +em)-(+sh*60+ +sm);
+    const top=sMin/totalMins*totalHeight;
+    const hpx=dMin/totalMins*totalHeight;
+    const col=daysCon.children[days.indexOf(day)];
+    const blk=document.createElement('div');
+    blk.className='course-block'; blk.style.top=top+'px'; blk.style.height=hpx+'px';
+    blk.textContent=text; col.appendChild(blk);
+  }
+  function drawBlockCustom(day,st,et,text){
+    drawBlock(day,{start:st,end:et},text);
+  }
+
+  // フリータイム選択（変更なし）
+  daysCon.querySelectorAll('.day-column').forEach(col=>{
+    col.addEventListener('click',e=>{
+      const y=e.offsetY,mins=y/totalHeight*totalMins;
+      const m30=Math.round(mins/30)*30;
+      const hh=String(Math.floor((m30+startH*60)/60)).padStart(2,'0');
+      const mm=String(m30%60).padStart(2,'0');
+      const ts=`${hh}:${mm}`,key=`${col.dataset.day} ${ts}`;
+      const ix = selected.indexOf(key);
+      if(ix>=0){
+        selected.splice(ix,1);
+        col.querySelectorAll('.sel-block').forEach(b=>{
+          if(b.dataset.time===ts) b.remove();
+        });
+      } else {
+        selected.push(key);
+        const blk=document.createElement('div');
+        blk.className='sel-block'; blk.dataset.time=ts;
+        blk.style.top=(m30/totalMins*totalHeight)+'px';
+        blk.style.height=(30/totalMins*totalHeight)+'px';
+        col.appendChild(blk);
+      }
+    });
+  });
+
+  // マッチ（変更なし）
+  async function sendMatch(){
+    if(!selected.length){ alert('先に時間を選択してください'); return; }
+    const fixed_slots=[];
+    selected.forEach(s=>{
+      const [day,tm]=s.split(' '),[h,m]=tm.split(':').map(Number);
+      const tot=h*60+m;
+      for(const [p,v] of Object.entries(periodTimes)){
+        const [sh,sm]=v.start.split(':'),[eh,em]=v.end.split(':');
+        const st=+sh*60+ +sm,en=+eh*60+ +em;
+        if(tot>=st&&tot<en) fixed_slots.push(`${dayMapEng[day]} ${p}`);
+      }
+    });
+    const res=await fetch(`${API}/match`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:user,fixed_slots})
+    });
+    const results=await res.json();
+    resultsUl.innerHTML='';
+    results.forEach(u=>{
+      const li=document.createElement('li');
+      let html=`<strong>${u.username}</strong><br>`;
+      u.slots.forEach(s=>html+=`${s.day} ${s.start}〜${s.end} ⇒ ${s.content}<br>`);
+      li.innerHTML=html; resultsUl.appendChild(li);
+    });
+  }
+
+  // モーダル操作（変更なし）
+  function openModal(){modalOverlay.style.display='block';courseModal.style.display='block';}
+  function closeModal(){modalOverlay.style.display='none';courseModal.style.display='none';}
+  document.getElementsByName('kind').forEach(r=>{
+    r.addEventListener('change',()=>{
+      slotPart.style.display=r.value==='slot'?'block':'none';
+      customPart.style.display=r.value==='custom'?'block':'none';
+    });
+  });
+
+  async function saveCourse(){
+    const kind=document.querySelector('input[name="kind"]:checked').value;
+    if(kind==='slot'){
+      const day=daySelect.value,slot=+slotSelect.value;
+      const content=courseInput.value.trim();
+      if(!content){alert('授業名を入力してください');return;}
+      await fetch(`${API}/courses`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,slot,content})
+      });
+    } else {
+      const day=daySelect2.value,st=startTime.value,et=endTime.value;
+      const content=customInput.value.trim();
+      if(!st||!et||!content){alert('全項目を入力してください');return;}
+      await fetch(`${API}/custom_slots`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,start_time:st,end_time:et,content})
+      });
+    }
+    closeModal(); loadCourses();
+  }
+  async function deleteCourse(){
+    const kind=document.querySelector('input[name="kind"]:checked').value;
+    if(kind==='slot'){
+      const day=daySelect.value,slot=+slotSelect.value;
+      await fetch(`${API}/courses`,{
+        method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,slot})
+      });
+    } else {
+      const day=daySelect2.value,st=startTime.value;
+      if(!st){alert('開始時刻を指定してください');return;}
+      await fetch(`${API}/custom_slots`,{
+        method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,start_time:st})
+      });
+    }
+    closeModal(); loadCourses();
+  }
+
+  // テーマ切替
+  const tt=document.getElementById('themeToggle');
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    tt.textContent=t==='dark'?'☀️':'🌙';
+    localStorage.setItem('coma_theme',t);
+  }
+  tt.addEventListener('click',()=>applyTheme(
+    document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'
+  ));
+  applyTheme(localStorage.getItem('coma_theme')||'light');
+
+  // 初期表示
+  renderDates();
+  loadCourses();
+</script>
+
+</body>
+</html>
