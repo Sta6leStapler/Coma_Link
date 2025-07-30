@@ -11,7 +11,7 @@ from flask import Flask, g, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)                        # フロントを file:// で開いても OK
+CORS(app)               
 DB_PATH = os.path.join(app.root_path, "coma_link.db")
 
 ## ---------- 共通 ----------
@@ -25,11 +25,23 @@ PERIOD_TIMES = {
     5:('16:15','17:45')
 }
 
+# def get_db():
+#     db = getattr(g, "_db", None)
+#     if db is None:
+#         db = sqlite3.connect(DB_PATH)
+#         db.row_factory = sqlite3.Row
+#         g._db = db
+#     return db
+# ---------- 共通 ----------
 def get_db():
     db = getattr(g, "_db", None)
     if db is None:
-        db = sqlite3.connect(DB_PATH)
+        # timeout=10秒 / check_same_thread=False でスレッド間共有を許可
+        db = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
         db.row_factory = sqlite3.Row
+        # 同時読み書きに強い WAL モードへ
+        db.execute("PRAGMA journal_mode=WAL;")
+        db.execute("PRAGMA foreign_keys = ON;")
         g._db = db
     return db
 
@@ -40,49 +52,113 @@ def close_db(exc):
         db.close()
 
 ## ---------- 初期化 ----------
+# def init_db():
+#     db = get_db(); cur = db.cursor()
+#     # 授業(何限)
+#     cur.execute('''CREATE TABLE IF NOT EXISTS courses(
+#         username TEXT NOT NULL,
+#         day      TEXT NOT NULL,      -- '月'〜'金'
+#         slot     INTEGER NOT NULL,   -- 1〜5
+#         content  TEXT,
+#         PRIMARY KEY(username,day,slot)
+#     )''')
+#     # カスタムコマ(時刻レンジ)
+#     cur.execute('''CREATE TABLE IF NOT EXISTS custom_slots(
+#         username   TEXT NOT NULL,
+#         day        TEXT NOT NULL,    -- '月'〜'金'
+#         start_time TEXT NOT NULL,    -- 'HH:MM'
+#         end_time   TEXT NOT NULL,
+#         content    TEXT,
+#         PRIMARY KEY(username,day,start_time)
+#     )''')
+#     db.commit()
 def init_db():
-    db = get_db(); cur = db.cursor()
-    # 授業(何限)
-    cur.execute('''CREATE TABLE IF NOT EXISTS courses(
-        username TEXT NOT NULL,
-        day      TEXT NOT NULL,      -- '月'〜'金'
-        slot     INTEGER NOT NULL,   -- 1〜5
-        content  TEXT,
-        PRIMARY KEY(username,day,slot)
-    )''')
-    # カスタムコマ(時刻レンジ)
-    cur.execute('''CREATE TABLE IF NOT EXISTS custom_slots(
-        username   TEXT NOT NULL,
-        day        TEXT NOT NULL,    -- '月'〜'金'
-        start_time TEXT NOT NULL,    -- 'HH:MM'
-        end_time   TEXT NOT NULL,
-        content    TEXT,
-        PRIMARY KEY(username,day,start_time)
-    )''')
-    db.commit()
+    db = sqlite3.connect(DB_PATH)
+    cur = db.cursor()
+
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS courses(
+            username TEXT NOT NULL,
+            day      TEXT NOT NULL,
+            slot     INTEGER NOT NULL,
+            start_time TEXT,
+            end_time   TEXT,
+            content  TEXT
+        )
+    ''')
+    cur.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_usr_day_slot
+        ON courses(username, day, slot)
+    ''')
+
+    # --- custom_slots はそのまま ---
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS custom_slots(
+            username   TEXT NOT NULL,
+            day        TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time   TEXT NOT NULL,
+            content    TEXT,
+            PRIMARY KEY(username, day, start_time)
+        )
+    ''')
+    db.commit(); db.close()
+
 
 ## ---------- 既定コマ API ----------
+# @app.route("/courses", methods=["GET","POST","DELETE"])
+# def courses():
+#     db = get_db(); cur = db.cursor()
+#     if request.method == "GET":
+#         u = request.args.get("username","").strip()
+#         cur.execute("SELECT day,slot,content FROM courses WHERE username=?", (u,))
+#         return jsonify([dict(r) for r in cur.fetchall()])
+
+#     data = request.get_json(); u = data.get("username","").strip()
+#     if request.method == "POST":
+#         cur.execute('''INSERT INTO courses(username,day,slot,content)
+#                        VALUES(?,?,?,?)
+#                        ON CONFLICT(username,day,slot)
+#                        DO UPDATE SET content=excluded.content''',
+#                     (u,data['day'],data['slot'],data.get('content','')))
+#         db.commit(); return jsonify(success=True)
+
+#     # DELETE
+#     cur.execute("DELETE FROM courses WHERE username=? AND day=? AND slot=?",
+#                 (u,data['day'],data['slot']))
+#     db.commit(); return jsonify(success=True)
+# ── 既定コマ API ──────────────────────────
 @app.route("/courses", methods=["GET","POST","DELETE"])
 def courses():
     db = get_db(); cur = db.cursor()
+
     if request.method == "GET":
         u = request.args.get("username","").strip()
         cur.execute("SELECT day,slot,content FROM courses WHERE username=?", (u,))
         return jsonify([dict(r) for r in cur.fetchall()])
 
-    data = request.get_json(); u = data.get("username","").strip()
-    if request.method == "POST":
-        cur.execute('''INSERT INTO courses(username,day,slot,content)
-                       VALUES(?,?,?,?)
-                       ON CONFLICT(username,day,slot)
-                       DO UPDATE SET content=excluded.content''',
-                    (u,data['day'],data['slot'],data.get('content','')))
-        db.commit(); return jsonify(success=True)
+    data = request.get_json();  u = data.get("username","").strip()
 
-    # DELETE
+    if request.method == "POST":
+        day  = data["day"]
+        slot = int(data["slot"])
+        content = data.get("content","")
+
+        st, et = PERIOD_TIMES[slot]         
+        cur.execute('''
+            INSERT INTO courses(username, day, slot, start_time, end_time, content)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(username, day, slot)
+            DO UPDATE SET content=excluded.content
+        ''', (u, day, slot, st, et, content))
+        db.commit()
+        return jsonify(success=True)
+
+    # DELETE はそのまま
     cur.execute("DELETE FROM courses WHERE username=? AND day=? AND slot=?",
-                (u,data['day'],data['slot']))
-    db.commit(); return jsonify(success=True)
+                (u, data["day"], data["slot"]))
+    db.commit()
+    return jsonify(success=True)
 
 ## ---------- カスタムコマ API ----------
 @app.route("/custom_slots", methods=["GET","POST","DELETE"])
@@ -168,8 +244,7 @@ def match():
 ## ---------- 簡易ログイン (dummy) ----------
 @app.route("/login", methods=["POST"])
 def login():
-    # 前端は localStorage に username を保持するだけなので
-    # バックでは特に認証せず echo
+
     return jsonify(success=True)
 
 @app.route("/")
