@@ -1,0 +1,94 @@
+# timetable.kv
+# Kivy UI for ComaLink Demo（时间割录入）
+
+<Root>:
+    orientation: 'vertical'
+    padding: dp(12)
+    spacing: dp(8)
+
+    BoxLayout:
+        orientation: 'vertical'
+        size_hint_y: None
+        height: self.minimum_height
+        spacing: dp(8)
+
+        BoxLayout:
+            spacing: dp(8)
+            size_hint_y: None
+            height: dp(44)
+            TextInput:
+                id: name
+                hint_text: '课程名*'
+                multiline: False
+            Spinner:
+                id: weekday
+                text: 'Mon'
+                values: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+                size_hint_x: None
+                width: dp(100)
+            TextInput:
+                id: start
+                hint_text: '开始节*'
+                input_filter: 'int'
+                multiline: False
+                size_hint_x: None
+                width: dp(90)
+            TextInput:
+                id: end
+                hint_text: '结束节*'
+                input_filter: 'int'
+                multiline: False
+                size_hint_x: None
+                width: dp(90)
+
+        BoxLayout:
+            spacing: dp(8)
+            size_hint_y: None
+            height: dp(44)
+            TextInput:
+                id: teacher
+                hint_text: '教师（可选）'
+                multiline: False
+            TextInput:
+                id: location
+                hint_text: '教室（可选）'
+                multiline: False
+            Button:
+                text: '保存'
+                size_hint_x: None
+                width: dp(120)
+                on_release: root.add_course()
+
+    RecycleView:
+        viewclass: 'CourseRow'
+        data: root.data
+        RecycleBoxLayout:
+            default_size: None, dp(64)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            orientation: 'vertical'
+
+<CourseRow>:
+    size_hint_y: None
+    height: dp(64)
+    padding: dp(8)
+    spacing: dp(8)
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: root.title
+            bold: True
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.size
+        Label:
+            text: root.subtitle
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.size
+    Button:
+        text: '删除'
+        size_hint_x: None
+        width: dp(100)
+        on_release: app.root.delete_course(root.cid)
