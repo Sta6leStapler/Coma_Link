@@ -102,6 +102,34 @@ def init_db():
             PRIMARY KEY(username, day, start_time)
         )
     ''')
+
+    # 募集情報を保存するテーブル
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS recruitments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            creator_username TEXT NOT NULL,
+            title TEXT NOT NULL,
+            category TEXT,
+            max_participants INTEGER DEFAULT 2,
+            location TEXT,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 参加申請を管理するテーブル
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recruitment_id INTEGER NOT NULL,
+            applicant_username TEXT NOT NULL,
+            status TEXT DEFAULT 'pending', -- pending, approved, rejected
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (recruitment_id) REFERENCES recruitments(id)
+        )
+    ''')
+
     db.commit(); db.close()
 
 
@@ -249,6 +277,102 @@ def login():
 
 @app.route("/")
 def home(): return "Coma‑Link backend running"
+
+@app.route("/recruitments", methods=["POST"])
+def create_recruitment():
+    db = get_db()
+    data = request.get_json()
+    # 必須項目のチェック
+    if not all(k in data for k in ['creator_username', 'title', 'start_time', 'end_time']):
+        return jsonify(success=False, message="必須項目が不足しています"), 400
+
+    cur = db.execute('''
+        INSERT INTO recruitments (creator_username, title, category, max_participants, location, start_time, end_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data['creator_username'],
+        data['title'],
+        data.get('category'),
+        data.get('max_participants', 2),
+        data.get('location'),
+        data['start_time'],
+        data['end_time']
+    ))
+    db.commit()
+    return jsonify(success=True, recruitment_id=cur.lastrowid)
+
+@app.route("/recruitments", methods=["GET"])
+def get_recruitments():
+    db = get_db()
+    # クエリパラメータでフィルタリング条件を受け取る
+    # (例: /recruitments?category=スポーツ&start_after=2025-10-06T10:00:00)
+    query = "SELECT * FROM recruitments WHERE 1=1"
+    params = []
+    
+    # カテゴリでの絞り込み
+    if 'category' in request.args:
+        query += " AND category = ?"
+        params.append(request.args['category'])
+    
+    # 場所での絞り込み
+    if 'location' in request.args:
+        query += " AND location = ?"
+        params.append(request.args['location'])
+        
+    # 指定した時間以降に開始される募集
+    if 'start_after' in request.args:
+        query += " AND start_time >= ?"
+        params.append(request.args['start_after'])
+
+    cur = db.execute(query, params)
+    recruitments = [dict(row) for row in cur.fetchall()]
+    return jsonify(recruitments)
+
+@app.route("/recruitments/<int:rec_id>/apply", methods=["POST"])
+def apply_for_recruitment(rec_id):
+    db = get_db()
+    data = request.get_json()
+    applicant = data.get("applicant_username")
+    if not applicant:
+        return jsonify(success=False, message="申請者名が必要です"), 400
+
+    db.execute('''
+        INSERT INTO participants (recruitment_id, applicant_username)
+        VALUES (?, ?)
+    ''', (rec_id, applicant))
+    db.commit()
+    # ここに本来は募集者への通知処理などを追加する
+    return jsonify(success=True)
+
+    @app.route("/my_recruitments/applications", methods=["GET"])
+def get_my_applications():
+    db = get_db()
+    username = request.args.get("username")
+    if not username:
+        return jsonify([]), 400
+
+    # 自分が作成した募集(r)に参加申請(p)してきたユーザーの一覧を取得
+    cur = db.execute('''
+        SELECT p.id, p.recruitment_id, r.title, p.applicant_username, p.status
+        FROM participants p
+        JOIN recruitments r ON p.recruitment_id = r.id
+        WHERE r.creator_username = ? AND p.status = 'pending'
+    ''', (username,))
+    
+    applications = [dict(row) for row in cur.fetchall()]
+    return jsonify(applications)
+
+@app.route("/applications/<int:app_id>", methods=["PUT"])
+def update_application_status(app_id):
+    db = get_db()
+    data = request.get_json()
+    new_status = data.get("status") # 'approved' or 'rejected'
+    if new_status not in ['approved', 'rejected']:
+        return jsonify(success=False, message="無効なステータスです"), 400
+
+    db.execute("UPDATE participants SET status = ? WHERE id = ?", (new_status, app_id))
+    db.commit()
+    return jsonify(success=True)
 
 # ---------- Run ----------
 if __name__ == "__main__":
