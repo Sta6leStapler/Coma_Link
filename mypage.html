@@ -117,6 +117,7 @@
   <!-- ナビゲーション -->
   <div class="toolbar">
     <button onclick="location.href='jikanwari.html'">時間割</button>
+    <button onclick="location.href='board.html'">募集掲示板</button>
     <button onclick="location.href='calendar.html'">カレンダー</button>
     <button onclick="location.href='connect.html'">つながる</button>
     <button onclick="location.href='chat.html'">チャット</button>
@@ -161,6 +162,22 @@
         </tbody>
       </table>
     </section>
+
+    <!-- 届いた参加申請 -->
+    <section>
+      <h2>届いた参加申請</h2>
+      <table id="applicationTable">
+        <thead>
+          <tr>
+            <th>募集タイトル</th>
+            <th>申請者</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          </tbody>
+      </table>
+    </section>
   </main>
 
   <script>
@@ -189,6 +206,7 @@
     // --- テーブル要素取得 ---
     const ttBody = document.querySelector('#ttTable tbody');
     const comaBody = document.querySelector('#comaTable tbody');
+    const appBody = document.querySelector('#applicationTable tbody');
 
     // --- 今日の授業取得 & 描画 ---
     async function loadCourses() {
@@ -237,6 +255,49 @@
       }
     }
 
+    // --- 参加申請を読み込む関数 ---
+    async function loadApplications() {
+      const res = await fetch(`${API}/my_recruitments/applications?username=${encodeURIComponent(user)}`);
+      const list = await res.json();
+      appBody.innerHTML = ''; // クリア
+      if (list.length) {
+        list.forEach(app => {
+          const tr = document.createElement('tr');
+          tr.id = `app-row-${app.id}`; // 行を特定するためのID
+          tr.innerHTML = `
+            <td>${app.title}</td>
+            <td>${app.applicant_username}</td>
+            <td>
+              <button onclick="handleApplication(${app.id}, 'approved')">承認</button>
+              <button onclick="handleApplication(${app.id}, 'rejected')">拒否</button>
+            </td>
+          `;
+          appBody.appendChild(tr);
+        });
+      } else {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3">新しい参加申請はありません</td>`;
+        appBody.appendChild(tr);
+      }
+    }
+
+    // --- 申請を承認/拒否する関数 ---
+    async function handleApplication(appId, status) {
+      const res = await fetch(`${API}/applications/${appId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`申請を${status === 'approved' ? '承認' : '拒否'}しました。`);
+        // 成功したら画面からその行を削除
+        document.getElementById(`app-row-${appId}`).remove();
+      } else {
+        alert('操作に失敗しました。');
+      }
+    }
+
     // --- テーマ切替 ---
     const tt = document.getElementById('themeToggle');
     function applyTheme(t) {
@@ -252,6 +313,7 @@
     // --- 初期ロード ---
     loadCourses();
     loadComas();
+    loadApplications();
   </script>
 </body>
 </html>

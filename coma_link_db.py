@@ -344,7 +344,7 @@ def apply_for_recruitment(rec_id):
     # ここに本来は募集者への通知処理などを追加する
     return jsonify(success=True)
 
-    @app.route("/my_recruitments/applications", methods=["GET"])
+@app.route("/my_recruitments/applications", methods=["GET"])
 def get_my_applications():
     db = get_db()
     username = request.args.get("username")
