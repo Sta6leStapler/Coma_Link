@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>募集掲示板 | Coma‑Link</title>
+  <style>
+    /* mypage.htmlのスタイルを参考にしています */
+    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --tag-bg: #e0e0e0; }
+    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --tag-bg: #4f4f4f; }
+    body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; }
+    header { background: var(--panel); padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    header h1 { font-size: 1.2em; }
+    header button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--fg); }
+    .toolbar { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .toolbar button { flex: 1; padding: 8px; background: var(--panel); border: none; cursor: pointer; font-size: 14px; }
+    .toolbar button.active { background: var(--highlight); color: #fff; }
+    main { padding: 20px; }
+    .filter-section { background: var(--panel); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+    .filter-section input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg); color: var(--fg); }
+    .create-btn { display: block; width: 100%; padding: 12px; background: var(--primary); color: #fff; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 20px; }
+    .recruitment-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+    .recruitment-card h3 { margin: 0 0 10px 0; }
+    .recruitment-card .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+    .recruitment-card .tag { background: var(--tag-bg); color: var(--fg); padding: 4px 8px; border-radius: 12px; font-size: 12px; }
+    .recruitment-card .apply-btn { float: right; padding: 6px 12px; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Coma‑Link</h1>
+    <button id="themeToggle">🌙</button>
+  </header>
+
+  <div class="toolbar">
+    <button onclick="location.href='jikanwari.html'">時間割</button>
+    <button onclick="location.href='board.html'" class="active">募集掲示板</button>
+    <button onclick="location.href='mypage.html'">マイページ</button>
+  </div>
+
+  <main>
+    <div class="filter-section">
+      <input type="text" id="filterCategory" placeholder="カテゴリで検索...">
+      <input type="text" id="filterLocation" placeholder="場所で検索...">
+    </div>
+
+    <a href="create_recruitment.html" class="create-btn">＋ 新しい募集を作成する</a>
+
+    <div id="recruitment-list">
+      </div>
+  </main>
+
+  <script>
+    const API = 'http://127.0.0.1:5000';
+    const user = localStorage.getItem('coma_user');
+    if (!user) {
+      alert('ログインしてください');
+      location.href = 'login.html';
+    }
+
+    const recruitmentList = document.getElementById('recruitment-list');
+    const filterCategory = document.getElementById('filterCategory');
+    const filterLocation = document.getElementById('filterLocation');
+
+    // 募集一覧を読み込んで表示する関数
+    async function loadRecruitments() {
+      let url = `${API}/recruitments?`;
+      const params = new URLSearchParams();
+      if (filterCategory.value) params.append('category', filterCategory.value);
+      if (filterLocation.value) params.append('location', filterLocation.value);
+      
+      const res = await fetch(url + params.toString());
+      const recruitments = await res.json();
+      
+      recruitmentList.innerHTML = ''; // 一旦クリア
+      if (recruitments.length === 0) {
+        recruitmentList.innerHTML = '<p>現在、募集はありません。</p>';
+        return;
+      }
+
+      recruitments.forEach(rec => {
+        const card = document.createElement('div');
+        card.className = 'recruitment-card';
+
+        // 日時を読みやすい形式にフォーマット
+        const startTime = new Date(rec.start_time).toLocaleString('ja-JP');
+        const endTime = new Date(rec.end_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+        card.innerHTML = `
+          <h3>${rec.title}</h3>
+          <div class="tags">
+            <span class="tag">👤 ${rec.creator_username}</span>
+            <span class="tag">📁 ${rec.category || '指定なし'}</span>
+            <span class="tag">📍 ${rec.location || '指定なし'}</span>
+            <span class="tag">👥 ${rec.max_participants}人</span>
+            <span class="tag">⏰ ${startTime} ~ ${endTime}</span>
+          </div>
+          <p>
+            <button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>
+          </p>
+        `;
+        recruitmentList.appendChild(card);
+      });
+    }
+
+    // 参加申請を行う関数
+    async function applyToRecruitment(recId) {
+      if (!confirm('この募集に参加申請しますか？')) return;
+
+      const res = await fetch(`${API}/recruitments/${recId}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicant_username: user })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('参加申請を送りました！');
+      } else {
+        alert('エラーが発生しました: ' + data.message);
+      }
+    }
+    
+    // フィルタ入力時に再読み込み
+    filterCategory.addEventListener('input', loadRecruitments);
+    filterLocation.addEventListener('input', loadRecruitments);
+
+    // テーマ切替のロジック (mypage.htmlからコピー)
+    const tt = document.getElementById('themeToggle');
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      tt.textContent = t === 'light' ? '🌙' : '☀️';
+      localStorage.setItem('coma_theme', t);
+    }
+    tt.addEventListener('click', () => {
+      applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+    applyTheme(localStorage.getItem('coma_theme') || 'light');
+
+    // 初期読み込み
+    loadRecruitments();
+  </script>
+</body>
+</html>

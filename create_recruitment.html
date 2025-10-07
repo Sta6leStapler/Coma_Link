@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>新規募集作成 | Coma-Link</title>
+  <style>
+    /* login.htmlのスタイルを参考にしています */
+    :root { --bg: #f5f5f5; --fg: #333; --panel: #fff; --border: #ddd; --primary: #2196f3; --overlay: rgba(0,0,0,0.3); }
+    html[data-theme="dark"] { --bg:#2b2b2b; --fg:#ddd; --panel:#3b3b3b; --border:#555; --primary:#1976d2; --overlay:rgba(0,0,0,0.5); }
+    body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--fg); }
+    header { background:var(--panel); padding:10px; display:flex; justify-content:space-between; border-bottom:1px solid var(--border); }
+    header button { background:var(--panel); color:var(--fg); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:16px; cursor:pointer; }
+    main { padding:20px; max-width:500px; margin:20px auto; background:var(--panel); border-radius:8px; box-shadow:0 2px 6px var(--overlay); }
+    h2 { margin-top:0; text-align:center; }
+    .form-group { margin-bottom:15px; }
+    .form-group label { display: block; margin-bottom: 5px; }
+    .form-group input { width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;}
+    .form-group button { width:100%; padding:10px; font-size:16px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; }
+    .time-group { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <button onclick="location.href='board.html'">← 掲示板に戻る</button>
+  </header>
+
+  <main>
+    <h2>新しい募集を作成</h2>
+    <div class="form-group">
+      <label for="title">タイトル *</label>
+      <input type="text" id="title" placeholder="例：一緒にランチしませんか？">
+    </div>
+    <div class="form-group">
+      <label for="category">カテゴリ</label>
+      <input type="text" id="category" placeholder="例：食事, 勉強, スポーツ">
+    </div>
+    <div class="form-group">
+      <label for="location">場所</label>
+      <input type="text" id="location" placeholder="例：学食, 図書館">
+    </div>
+    <div class="form-group">
+      <label for="max_participants">最大人数</label>
+      <input type="number" id="max_participants" value="2">
+    </div>
+    <div class="form-group time-group">
+      <div style="flex:1;">
+        <label for="start_time">開始日時 *</label>
+        <input type="datetime-local" id="start_time">
+      </div>
+      <div style="flex:1;">
+        <label for="end_time">終了日時 *</label>
+        <input type="datetime-local" id="end_time">
+      </div>
+    </div>
+    <div class="form-group">
+      <button onclick="createRecruitment()">募集を作成する</button>
+    </div>
+  </main>
+
+  <script>
+    const API = 'http://127.0.0.1:5000';
+    const user = localStorage.getItem('coma_user');
+    if (!user) {
+      alert('ログインしてください');
+      location.href = 'login.html';
+    }
+
+    async function createRecruitment() {
+      const title = document.getElementById('title').value.trim();
+      const startTime = document.getElementById('start_time').value;
+      const endTime = document.getElementById('end_time').value;
+
+      if (!title || !startTime || !endTime) {
+        alert('必須項目（*）を入力してください。');
+        return;
+      }
+      
+      const body = {
+        creator_username: user,
+        title: title,
+        category: document.getElementById('category').value.trim(),
+        location: document.getElementById('location').value.trim(),
+        max_participants: parseInt(document.getElementById('max_participants').value, 10),
+        start_time: startTime,
+        end_time: endTime
+      };
+
+      const res = await fetch(`${API}/recruitments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('募集を作成しました！');
+        location.href = 'board.html';
+      } else {
+        alert('作成に失敗しました: ' + data.message);
+      }
+    }
+  </script>
+</body>
+</html>
