@@ -582,12 +582,10 @@ import os, shutil
 import pytesseract
 
 def ensure_tesseract():
-    # 1) 允许用环境变量手动指定（可选）
     p = os.getenv("TESSERACT_PATH")
     if p and os.path.exists(p):
         pass
     else:
-        # 2) 常见安装位置/winget 路径候选
         candidates = [
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
@@ -601,17 +599,14 @@ def ensure_tesseract():
             "tesseract.exe not found. Install UB-Mannheim Tesseract or set TESSERACT_PATH."
         )
 
-    # 告诉 pytesseract 用这个可执行文件
     pytesseract.pytesseract.tesseract_cmd = p
 
-    # 指定语言数据目录（找不到 jpn 时很关键）
     tessdata = os.path.join(os.path.dirname(p), "tessdata")
     if os.path.isdir(tessdata):
         os.environ["TESSDATA_PREFIX"] = tessdata
 
     return p
 
-# 调用一次即可
 TESS_PATH = ensure_tesseract()
 print("Using Tesseract at:", TESS_PATH)
 # --- end bootstrap ---
