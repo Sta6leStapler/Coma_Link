@@ -290,7 +290,7 @@ class DB:
             self.conn.execute("ALTER TABLE timetable ADD COLUMN term TEXT")
             self.conn.execute("UPDATE timetable SET term='春ターム' WHERE term IS NULL")
             self.conn.commit()
-        # 兜底：避免老库缺列
+      
         cur = self.conn.execute("PRAGMA table_info(timetable)")
         cols = {r[1] for r in cur.fetchall()}
         if "period_start" not in cols:
@@ -337,7 +337,7 @@ class DB:
         return Course(r[0], r[1], r[2], r[3], r[4], r[5], r[6])
 
 # ---------- OCR 解析 ----------
-# 支持：1-2限、1～2限、１〜２限、3限 等；全角数字自动转半角
+# 支持：1-2限、1～2限、１〜２限、3限 
 _period_pat = re.compile(r"(?:([0-9０-９]{1,2})\s*[-~〜～–]\s*([0-9０-９]{1,2})|\b([0-9０-９]{1,2}))\s*限?")
 def _to_int(s: str) -> int:
     trans = str.maketrans("０１２３４５６７８９", "0123456789")
@@ -577,6 +577,44 @@ class AppKivy(App):
     def build(self):
         Builder.load_string(KV)   
         return Root()             
+# --- Tesseract bootstrap (Windows) ---
+import os, shutil
+import pytesseract
+
+def ensure_tesseract():
+    # 1) 允许用环境变量手动指定（可选）
+    p = os.getenv("TESSERACT_PATH")
+    if p and os.path.exists(p):
+        pass
+    else:
+        # 2) 常见安装位置/winget 路径候选
+        candidates = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\UB-Mannheim.TesseractOCR*\Tesseract-OCR\tesseract.exe"),
+        ]
+        p = next((c for c in candidates if os.path.exists(c)), None) or shutil.which("tesseract")
+
+    if not p:
+        raise RuntimeError(
+            "tesseract.exe not found. Install UB-Mannheim Tesseract or set TESSERACT_PATH."
+        )
+
+    # 告诉 pytesseract 用这个可执行文件
+    pytesseract.pytesseract.tesseract_cmd = p
+
+    # 指定语言数据目录（找不到 jpn 时很关键）
+    tessdata = os.path.join(os.path.dirname(p), "tessdata")
+    if os.path.isdir(tessdata):
+        os.environ["TESSDATA_PREFIX"] = tessdata
+
+    return p
+
+# 调用一次即可
+TESS_PATH = ensure_tesseract()
+print("Using Tesseract at:", TESS_PATH)
+# --- end bootstrap ---
 
 if __name__ == "__main__":
     AppKivy().run()
