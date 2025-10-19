@@ -83,7 +83,7 @@ KV = f"""
 <LinkLabel@ButtonBehavior+Label>:
     color: 0.35, 0.1, 0.75, 1
     markup: True
-    text: "[u]未登録[/u]"
+    text: "[u]コマ[/u]"
     halign: 'center'
     valign: 'middle'
     text_size: self.size

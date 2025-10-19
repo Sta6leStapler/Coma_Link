@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Coma-Link 時間割マッチング</title>
+  <style>
+    :root{
+      --bg:#f5f5f5; --fg:#333; --panel:#fff; --border:#ddd;
+      --highlight:#b2fab4; --primary:#2196f3; --overlay:rgba(0,0,0,0.3);
+      --row-h:92px;               /* 每限一行的高度（横线间距） */
+    }
+    html[data-theme="dark"]{
+      --bg:#2b2b2b;--fg:#ddd;--panel:#3b3b3b;--border:#555;
+      --highlight:#4caf50;--primary:#1976d2;--overlay:rgba(0,0,0,0.5);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:Arial,sans-serif;background:var(--bg);color:var(--fg);
+         display:flex;flex-direction:column;height:100vh;}
+    header{background:var(--panel);padding:10px;display:flex;
+           justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+    header h1{font-size:1.2em;}
+    header button{background:none;border:none;cursor:pointer;font-size:20px;color:var(--fg);}
+    .toolbar{display:flex;border-bottom:1px solid var(--border);}
+    .toolbar button{flex:1;padding:8px;background:var(--panel);
+                    border:none;cursor:pointer;font-size:14px;}
+    .toolbar button.active{background:var(--highlight);color:#fff;}
+
+    /* 日付ナビ */
+    .date-nav{display:flex;align-items:center;gap:8px;
+              background:var(--panel);padding:8px;border-bottom:1px solid var(--border);}
+    .date-nav button{padding:6px 12px;border:none;border-radius:4px;
+                     background:var(--primary);color:#fff;cursor:pointer;}
+    .date-nav input[type="date"]{padding:6px;border:1px solid var(--border);
+                                  border-radius:4px;background:var(--bg);color:var(--fg);}
+
+    /* 曜日ヘッダー（不画竖线） */
+    .header-row{display:flex;border-bottom:1px solid var(--border);}
+    .time-header{width:100px;flex:0 0 100px;border-right:none;}
+    .day-name{flex:1;text-align:center;padding:6px 0;background:var(--panel);
+              font-weight:bold;border-right:none;}
+    .date-name{flex:1;text-align:center;padding:2px 0;background:var(--panel);
+               font-size:12px;color:#555;border-right:none;}
+
+    /* 主体：左列 + 网格（无竖线，只有横线） */
+    .schedule-wrapper{position:relative;flex:1;display:flex;overflow:auto;background:var(--panel);}
+    .time-column{width:100px;position:sticky;left:0;background:var(--panel);
+                 border-right:none;z-index:2;}
+    .time-column .period{
+      height:var(--row-h); display:flex; flex-direction:column;
+      align-items:flex-end; justify-content:center;
+      padding:4px 8px 4px 4px; font-size:12px; line-height:1.2; white-space:pre-line;
+    }
+    .time-column .pname{font-weight:bold;}
+    .time-column .ptime{opacity:.7;}
+
+    /* 右侧网格：5列×7行；用背景画横线（统一分割线样式） */
+    .days-column{
+      flex:1; display:grid; grid-template-columns:repeat(5, 1fr);
+      /* 仅横向分割线：每行底部 1px */
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          var(--border) 0 1px,
+          transparent 1px var(--row-h)
+        );
+    }
+    .cell{
+      height:var(--row-h); position:relative; cursor:pointer;
+      /* 取消一切边框/竖线 */
+      border:none; background:transparent;
+    }
+    .cell .empty{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      color:#7a64c1; font-weight:bold; opacity:.9; pointer-events:none;
+    }
+    .cell .course{
+      position:absolute; inset:6px; overflow:auto;
+      background:#fff7c7; border:1px solid #e7d996; border-radius:10px;
+      padding:6px; font-size:12px; line-height:1.3; color:#3b3b3b;
+    }
+    .cell .course .code{font-weight:bold;color:#333}
+    .cell .course .teacher{margin-top:2px;opacity:.85}
+    .cell .custom-tag{
+      position:absolute; right:6px; bottom:6px;
+      background:#e8d7ff; color:#fff; border-radius:6px; padding:2px 6px; font-size:11px;
+    }
+
+    /* 选取：整格圆角高亮（与边缘留白 6px） */
+    .cell.selected .empty{display:none;}
+    .cell.selected::after{
+      content:""; position:absolute; inset:6px;
+      background:#b2fab4; border-radius:10px;
+      box-shadow:0 1px 0 rgba(0,0,0,.05), inset 0 0 0 1px rgba(0,0,0,.08);
+      pointer-events:none;
+    }
+    /* 若已有课程，默认不叠加绿色选区（如要允许叠加，注释掉下一行） */
+    .cell.has-course.selected::after{display:none;}
+
+    /* 底部操作 */
+    .action-panel{background:var(--panel);border-top:1px solid var(--border);
+                  padding:8px;display:flex;align-items:center;gap:8px;}
+    .action-panel button{border:none;cursor:pointer;padding:8px 12px;
+                         border-radius:4px;background:var(--primary);color:#fff;}
+
+    /* モーダル */
+    #modalOverlay{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;
+                  background:var(--overlay);z-index:4;}
+    #courseModal{display:none;position:fixed;top:50%;left:50%;
+                 transform:translate(-50%,-50%);background:var(--panel);
+                 padding:20px;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,.2);z-index:5;min-width:300px;}
+    #courseModal label{display:flex;align-items:center;margin-bottom:8px;}
+    #courseModal select,#courseModal input[type="time"],#courseModal input[type="text"]{
+      width:100%;margin-bottom:10px;padding:6px;border:1px solid var(--border);
+      border-radius:4px;background:var(--bg);color:var(--fg);}
+    #courseModal button{margin-right:8px;padding:6px 12px;cursor:pointer;}
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>時間割マッチング</h1>
+    <button id="themeToggle">🌙</button>
+  </header>
+
+  <div class="toolbar">
+    <button class="active">時間割</button>
+    <button onclick="location.href='3.html'">カレンダー</button>
+    <button onclick="location.href='4.html'">つながる</button>
+    <button onclick="location.href='5.html'">チャット</button>
+    <button onclick="location.href='mypage.html'">マイページ</button>
+  </div>
+
+  <div class="date-nav">
+    <button id="prevWeek">◀ 前週</button>
+    <button id="thisWeek">当週</button>
+    <button id="nextWeek">次週 ▶</button>
+    <input type="date" id="pickDate"/>
+  </div>
+
+  <div id="weekdayRow" class="header-row">
+    <div class="time-header"></div>
+    <div class="day-name">月</div><div class="day-name">火</div>
+    <div class="day-name">水</div><div class="day-name">木</div>
+    <div class="day-name">金</div>
+  </div>
+  <div id="dateRow" class="header-row">
+    <div class="time-header"></div>
+    <div class="date-name" id="d0"></div>
+    <div class="date-name" id="d1"></div>
+    <div class="date-name" id="d2"></div>
+    <div class="date-name" id="d3"></div>
+    <div class="date-name" id="d4"></div>
+  </div>
+
+  <div class="schedule-wrapper">
+    <div class="time-column" id="timeColumn"></div>
+    <div class="days-column" id="daysContainer"></div>
+  </div>
+
+  <div class="action-panel">
+    <button onclick="openModal()">追加／削除</button>
+    <button onclick="sendMatch()">選択をマッチに送る</button>
+    <ul id="results" style="margin-left:8px"></ul>
+  </div>
+
+  <div id="modalOverlay" onclick="closeModal()"></div>
+  <div id="courseModal">
+    <h3>コマ設定</h3>
+    <label><input type="radio" name="kind" value="slot" checked> 既定コマ</label>
+    <label><input type="radio" name="kind" value="custom"> カスタムコマ</label>
+    <div id="slotPart">
+      <select id="daySelect">
+        <option>月</option><option>火</option><option>水</option>
+        <option>木</option><option>金</option>
+      </select>
+      <select id="slotSelect">
+        <option value="1">1限</option><option value="2">2限</option>
+        <option value="3">3限</option><option value="4">4限</option>
+        <option value="5">5限</option><option value="6">6限</option>
+        <option value="7">7限</option>
+      </select>
+      <input type="text" id="courseInput" placeholder="授業名 / 教室"/>
+    </div>
+    <div id="customPart" style="display:none;">
+      <select id="daySelect2">
+        <option>月</option><option>火</option><option>水</option>
+        <option>木</option><option>金</option>
+      </select>
+      <input type="time" id="startTime"/>〜<input type="time" id="endTime"/>
+      <input type="text" id="customInput" placeholder="内容（例：ゼミ）"/>
+    </div>
+    <button onclick="saveCourse()">保存</button>
+    <button onclick="deleteCourse()">削除</button>
+    <button onclick="closeModal()">キャンセル</button>
+  </div>
+
+<script>
+  /* ===== 基础配置 ===== */
+  const API = 'http://127.0.0.1:5000';
+  const user = localStorage.getItem('coma_user');
+  if(!user){ alert('ログインしてください'); location.href='login.html'; }
+
+  // 1〜7限时间（可按学校规则调整）
+  const periodTimes = {
+    1:{start:'09:00',end:'10:30'},
+    2:{start:'10:40',end:'12:10'},
+    3:{start:'13:00',end:'14:30'},
+    4:{start:'14:40',end:'16:10'},
+    5:{start:'16:20',end:'17:50'},
+    6:{start:'18:00',end:'19:30'},
+    7:{start:'19:40',end:'21:10'}
+  };
+  const days = ['月','火','水','木','金'];
+  const dayMapEng={'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri'};
+
+  /* ===== DOM 引用 ===== */
+  const timeCol=document.getElementById('timeColumn'),
+        daysCon=document.getElementById('daysContainer'),
+        resultsUl=document.getElementById('results');
+  const dEls=[0,1,2,3,4].map(i=>document.getElementById('d'+i));
+
+  /* ===== 周次控制 ===== */
+  let baseMonday = getMonday(new Date());
+  document.getElementById('prevWeek').onclick = ()=>{ baseMonday.setDate(baseMonday.getDate()-7); renderDates(); loadCourses(); };
+  document.getElementById('nextWeek').onclick = ()=>{ baseMonday.setDate(baseMonday.getDate()+7); renderDates(); loadCourses(); };
+  document.getElementById('thisWeek').onclick = ()=>{ baseMonday = getMonday(new Date()); renderDates(); loadCourses(); };
+  document.getElementById('pickDate').onchange = e=>{ const d=new Date(e.target.value); baseMonday=getMonday(d); renderDates(); loadCourses(); };
+
+  function getMonday(d){ const day=d.getDay(), diff=(day+6)%7; const m=new Date(d); m.setDate(d.getDate()-diff); return m; }
+  function renderDates(){
+    for(let i=0;i<5;i++){
+      const d=new Date(baseMonday); d.setDate(baseMonday.getDate()+i);
+      dEls[i].textContent=`${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}`;
+    }
+  }
+
+  /* ===== 构建左列与网格 ===== */
+  function buildTimeColumn(){
+    timeCol.innerHTML='';
+    for(let p=1;p<=7;p++){
+      const cell=document.createElement('div');
+      cell.className='period';
+      cell.innerHTML=`<span class="pname">${p}限</span><span class="ptime">${periodTimes[p].start}〜${periodTimes[p].end}</span>`;
+      timeCol.appendChild(cell);
+    }
+  }
+
+  function buildGrid(){
+    daysCon.innerHTML='';
+    // 5列 × 7行
+    for(let p=1;p<=7;p++){
+      for(const day of days){
+        const cell=document.createElement('div');
+        cell.className='cell';
+        cell.dataset.day=day;
+        cell.dataset.period=p;
+        cell.innerHTML=`<div class="empty">未登録</div>`;
+        // 点击打开设置
+        cell.addEventListener('dblclick',()=>openModal(day,p));
+        daysCon.appendChild(cell);
+      }
+    }
+  }
+
+  function getCell(day, period){
+    // daysCon 是 5 列：索引 = (period-1)*5 + days.indexOf(day)
+    const idx=(period-1)*days.length + days.indexOf(day);
+    return daysCon.children[idx];
+  }
+
+  /* ===== 选取（整格拖拽多选/反选） ===== */
+  const selectedSlots = new Set();  // "月-2" 形态
+  let isDragging=false;
+  let dragMode='add'; // 'add'|'remove'
+  function slotKey(day,period){ return `${day}-${period}`; }
+
+  function attachCellSelectionEvents(){
+    document.querySelectorAll('.cell').forEach(cell=>{
+      cell.addEventListener('mousedown', e=>{
+        // 若已有课程，默认不参与选区（允许叠加请注释掉下一行）
+        if(cell.classList.contains('has-course')) return;
+        isDragging=true;
+        const k=slotKey(cell.dataset.day, Number(cell.dataset.period));
+        dragMode = cell.classList.contains('selected') ? 'remove' : 'add';
+        applySelect(cell,k,dragMode);
+        e.preventDefault();
+      });
+      cell.addEventListener('mouseenter', ()=>{
+        if(!isDragging) return;
+        if(cell.classList.contains('has-course')) return;
+        const k=slotKey(cell.dataset.day, Number(cell.dataset.period));
+        applySelect(cell,k,dragMode);
+      });
+    });
+    window.addEventListener('mouseup', ()=>{ isDragging=false; }, {passive:true});
+  }
+
+  function applySelect(cell,key,mode){
+    if(mode==='add'){
+      if(!selectedSlots.has(key)){ selectedSlots.add(key); cell.classList.add('selected'); }
+    }else{
+      if(selectedSlots.has(key)){ selectedSlots.delete(key); cell.classList.remove('selected'); }
+    }
+  }
+
+  function getFixedSlotsFromSelection(){
+    const list=[];
+    selectedSlots.forEach(k=>{
+      const [day,p]=k.split('-');
+      list.push(`${dayMapEng[day]} ${p}`);
+    });
+    return list;
+  }
+
+  /* ===== 数据加载/渲染 ===== */
+  let customList=[];
+  async function loadCourses(){
+    // 清空格状态
+    document.querySelectorAll('.cell').forEach(c=>{
+      c.classList.remove('has-course','selected');
+      c.innerHTML=`<div class="empty">未登録</div>`;
+    });
+
+    // 既定コマ
+    let res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
+    let arr = await res.json(); // e.g. [{day:'月',slot:2,content:'...'}]
+    arr.forEach(c=>{
+      const cell=getCell(c.day, Number(c.slot));
+      if(!cell) return;
+      cell.classList.add('has-course');
+      const contentText = (c.title || c.content || '').toString().trim();
+      const code = (c.code || '').toString().trim();
+      const teacher = (c.teacher || '').toString().trim();
+      cell.innerHTML =
+        `<div class="course">
+           <div class="code">${code}</div>
+           <div class="title">${escapeHtml(contentText)}</div>
+           <div class="teacher">${escapeHtml(teacher)}</div>
+         </div>`;
+    });
+
+    // カスタムコマ（映射到所在限；若已有课程则添加角标）
+    res = await fetch(`${API}/custom_slots?username=${encodeURIComponent(user)}`);
+    customList = await res.json(); // e.g. [{day:'火', start_time:'13:15', end_time:'14:00', content:'ゼミ'}]
+    customList.forEach(c=>{
+      const p = mapTimeToPeriod(c.start_time);
+      if(!p) return;
+      const cell=getCell(c.day, p);
+      if(!cell) return;
+      if(cell.querySelector('.course')){
+        const tag=document.createElement('div');
+        tag.className='custom-tag';
+        tag.textContent=c.content;
+        cell.appendChild(tag);
+      }else{
+        cell.innerHTML=
+          `<div class="course" style="background:#e8d7ff;color:#fff;border-color:#c7b7ff">
+             <div class="title">${escapeHtml(c.content)}（${c.start_time}〜${c.end_time}）</div>
+           </div>`;
+      }
+    });
+  }
+
+  function mapTimeToPeriod(hhmm){
+    const toMin=s=>{const [h,m]=s.split(':').map(Number);return h*60+m;};
+    const t=toMin(hhmm);
+    for(const [p,v] of Object.entries(periodTimes)){
+      if(t>=toMin(v.start) && t<toMin(v.end)) return Number(p);
+    }
+    return null;
+  }
+
+  /* ===== 发送匹配 ===== */
+  async function sendMatch(){
+    const fixed_slots = getFixedSlotsFromSelection();
+    if(!fixed_slots.length){ alert('先选择至少一个空きコマ'); return; }
+    const res=await fetch(`${API}/match`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:user,fixed_slots})
+    });
+    const results=await res.json();
+    resultsUl.innerHTML='';
+    results.forEach(u=>{
+      const li=document.createElement('li');
+      let html=`<strong>${u.username}</strong><br>`;
+      u.slots.forEach(s=>html+=`${s.day} ${s.start}〜${s.end} ⇒ ${s.content}<br>`);
+      li.innerHTML=html; resultsUl.appendChild(li);
+    });
+  }
+
+  /* ===== 弹窗 ===== */
+  function openModal(day=null,period=null){
+    modalOverlay.style.display='block'; courseModal.style.display='block';
+    if(day){ daySelect.value=day; daySelect2.value=day; }
+    if(period){ slotSelect.value=String(period); }
+  }
+  function closeModal(){ modalOverlay.style.display='none'; courseModal.style.display='none'; }
+  document.getElementsByName('kind').forEach(r=>{
+    r.addEventListener('change',()=>{
+      slotPart.style.display=r.value==='slot'?'block':'none';
+      customPart.style.display=r.value==='custom'?'block':'none';
+    });
+  });
+
+  async function saveCourse(){
+    const kind=document.querySelector('input[name="kind"]:checked').value;
+    if(kind==='slot'){
+      const day=daySelect.value,slot=+slotSelect.value;
+      const content=courseInput.value.trim();
+      if(!content){alert('授業名を入力してください');return;}
+      await fetch(`${API}/courses`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,slot,content})
+      });
+    }else{
+      const day=daySelect2.value,st=startTime.value,et=endTime.value;
+      const content=customInput.value.trim();
+      if(!st||!et||!content){alert('全項目を入力してください');return;}
+      await fetch(`${API}/custom_slots`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,start_time:st,end_time:et,content})
+      });
+    }
+    closeModal(); loadCourses();
+  }
+  async function deleteCourse(){
+    const kind=document.querySelector('input[name="kind"]:checked').value;
+    if(kind==='slot'){
+      const day=daySelect.value,slot=+slotSelect.value;
+      await fetch(`${API}/courses`,{
+        method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,slot})
+      });
+    }else{
+      const day=daySelect2.value,st=startTime.value;
+      if(!st){alert('開始時刻を指定してください');return;}
+      await fetch(`${API}/custom_slots`,{
+        method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user,day,start_time:st})
+      });
+    }
+    closeModal(); loadCourses();
+  }
+
+  /* ===== 主题切换 ===== */
+  const tt=document.getElementById('themeToggle');
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); tt.textContent=t==='dark'?'☀️':'🌙'; localStorage.setItem('coma_theme',t); }
+  tt.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'));
+  applyTheme(localStorage.getItem('coma_theme')||'light');
+
+  /* ===== 启动 ===== */
+  function escapeHtml(str=''){return str.replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  buildTimeColumn();
+  buildGrid();
+  attachCellSelectionEvents();
+  renderDates();
+  loadCourses();
+</script>
+
+</body>
+</html>
