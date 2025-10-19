@@ -8,7 +8,7 @@
     :root{
       --bg:#f5f5f5; --fg:#333; --panel:#fff; --border:#ddd;
       --highlight:#b2fab4; --primary:#2196f3; --overlay:rgba(0,0,0,0.3);
-      --row-h:92px;               /* 每限一行的高度（横线间距） */
+      --row-h:92px;            
     }
     html[data-theme="dark"]{
       --bg:#2b2b2b;--fg:#ddd;--panel:#3b3b3b;--border:#555;
@@ -34,7 +34,7 @@
     .date-nav input[type="date"]{padding:6px;border:1px solid var(--border);
                                   border-radius:4px;background:var(--bg);color:var(--fg);}
 
-    /* 曜日ヘッダー（不画竖线） */
+    /* 曜日ヘッダー */
     .header-row{display:flex;border-bottom:1px solid var(--border);}
     .time-header{width:100px;flex:0 0 100px;border-right:none;}
     .day-name{flex:1;text-align:center;padding:6px 0;background:var(--panel);
@@ -42,7 +42,7 @@
     .date-name{flex:1;text-align:center;padding:2px 0;background:var(--panel);
                font-size:12px;color:#555;border-right:none;}
 
-    /* 主体：左列 + 网格（无竖线，只有横线） */
+
     .schedule-wrapper{position:relative;flex:1;display:flex;overflow:auto;background:var(--panel);}
     .time-column{width:100px;position:sticky;left:0;background:var(--panel);
                  border-right:none;z-index:2;}
@@ -54,10 +54,10 @@
     .time-column .pname{font-weight:bold;}
     .time-column .ptime{opacity:.7;}
 
-    /* 右侧网格：5列×7行；用背景画横线（统一分割线样式） */
+
     .days-column{
       flex:1; display:grid; grid-template-columns:repeat(5, 1fr);
-      /* 仅横向分割线：每行底部 1px */
+
       background:
         repeating-linear-gradient(
           to bottom,
@@ -67,7 +67,7 @@
     }
     .cell{
       height:var(--row-h); position:relative; cursor:pointer;
-      /* 取消一切边框/竖线 */
+
       border:none; background:transparent;
     }
     .cell .empty{
@@ -86,7 +86,7 @@
       background:#e8d7ff; color:#fff; border-radius:6px; padding:2px 6px; font-size:11px;
     }
 
-    /* 选取：整格圆角高亮（与边缘留白 6px） */
+
     .cell.selected .empty{display:none;}
     .cell.selected::after{
       content:""; position:absolute; inset:6px;
@@ -94,10 +94,10 @@
       box-shadow:0 1px 0 rgba(0,0,0,.05), inset 0 0 0 1px rgba(0,0,0,.08);
       pointer-events:none;
     }
-    /* 若已有课程，默认不叠加绿色选区（如要允许叠加，注释掉下一行） */
+
     .cell.has-course.selected::after{display:none;}
 
-    /* 底部操作 */
+
     .action-panel{background:var(--panel);border-top:1px solid var(--border);
                   padding:8px;display:flex;align-items:center;gap:8px;}
     .action-panel button{border:none;cursor:pointer;padding:8px 12px;
@@ -196,12 +196,12 @@
   </div>
 
 <script>
-  /* ===== 基础配置 ===== */
+
   const API = 'http://127.0.0.1:5000';
   const user = localStorage.getItem('coma_user');
   if(!user){ alert('ログインしてください'); location.href='login.html'; }
 
-  // 1〜7限时间（可按学校规则调整）
+
   const periodTimes = {
     1:{start:'09:00',end:'10:30'},
     2:{start:'10:40',end:'12:10'},
@@ -214,13 +214,13 @@
   const days = ['月','火','水','木','金'];
   const dayMapEng={'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri'};
 
-  /* ===== DOM 引用 ===== */
+
   const timeCol=document.getElementById('timeColumn'),
         daysCon=document.getElementById('daysContainer'),
         resultsUl=document.getElementById('results');
   const dEls=[0,1,2,3,4].map(i=>document.getElementById('d'+i));
 
-  /* ===== 周次控制 ===== */
+
   let baseMonday = getMonday(new Date());
   document.getElementById('prevWeek').onclick = ()=>{ baseMonday.setDate(baseMonday.getDate()-7); renderDates(); loadCourses(); };
   document.getElementById('nextWeek').onclick = ()=>{ baseMonday.setDate(baseMonday.getDate()+7); renderDates(); loadCourses(); };
@@ -235,7 +235,6 @@
     }
   }
 
-  /* ===== 构建左列与网格 ===== */
   function buildTimeColumn(){
     timeCol.innerHTML='';
     for(let p=1;p<=7;p++){
@@ -256,7 +255,6 @@
         cell.dataset.day=day;
         cell.dataset.period=p;
         cell.innerHTML=`<div class="empty">未登録</div>`;
-        // 点击打开设置
         cell.addEventListener('dblclick',()=>openModal(day,p));
         daysCon.appendChild(cell);
       }
@@ -264,13 +262,11 @@
   }
 
   function getCell(day, period){
-    // daysCon 是 5 列：索引 = (period-1)*5 + days.indexOf(day)
     const idx=(period-1)*days.length + days.indexOf(day);
     return daysCon.children[idx];
   }
 
-  /* ===== 选取（整格拖拽多选/反选） ===== */
-  const selectedSlots = new Set();  // "月-2" 形态
+  const selectedSlots = new Set();  // "月-2" 
   let isDragging=false;
   let dragMode='add'; // 'add'|'remove'
   function slotKey(day,period){ return `${day}-${period}`; }
@@ -278,7 +274,6 @@
   function attachCellSelectionEvents(){
     document.querySelectorAll('.cell').forEach(cell=>{
       cell.addEventListener('mousedown', e=>{
-        // 若已有课程，默认不参与选区（允许叠加请注释掉下一行）
         if(cell.classList.contains('has-course')) return;
         isDragging=true;
         const k=slotKey(cell.dataset.day, Number(cell.dataset.period));
@@ -313,10 +308,8 @@
     return list;
   }
 
-  /* ===== 数据加载/渲染 ===== */
   let customList=[];
   async function loadCourses(){
-    // 清空格状态
     document.querySelectorAll('.cell').forEach(c=>{
       c.classList.remove('has-course','selected');
       c.innerHTML=`<div class="empty">未登録</div>`;
@@ -340,7 +333,7 @@
          </div>`;
     });
 
-    // カスタムコマ（映射到所在限；若已有课程则添加角标）
+    // カスタムコマ
     res = await fetch(`${API}/custom_slots?username=${encodeURIComponent(user)}`);
     customList = await res.json(); // e.g. [{day:'火', start_time:'13:15', end_time:'14:00', content:'ゼミ'}]
     customList.forEach(c=>{
@@ -371,7 +364,6 @@
     return null;
   }
 
-  /* ===== 发送匹配 ===== */
   async function sendMatch(){
     const fixed_slots = getFixedSlotsFromSelection();
     if(!fixed_slots.length){ alert('先选择至少一个空きコマ'); return; }
@@ -389,7 +381,7 @@
     });
   }
 
-  /* ===== 弹窗 ===== */
+
   function openModal(day=null,period=null){
     modalOverlay.style.display='block'; courseModal.style.display='block';
     if(day){ daySelect.value=day; daySelect2.value=day; }
@@ -443,7 +435,6 @@
     closeModal(); loadCourses();
   }
 
-  /* ===== 主题切换 ===== */
   const tt=document.getElementById('themeToggle');
   function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); tt.textContent=t==='dark'?'☀️':'🌙'; localStorage.setItem('coma_theme',t); }
   tt.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'));
