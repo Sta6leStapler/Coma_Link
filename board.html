@@ -19,11 +19,11 @@
     .filter-section { background: var(--panel); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
     .filter-section input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg); color: var(--fg); }
     .create-btn { display: block; width: 100%; padding: 12px; background: var(--primary); color: #fff; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 20px; }
-    .recruitment-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+    .recruitment-card { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
     .recruitment-card h3 { margin: 0 0 10px 0; }
     .recruitment-card .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
     .recruitment-card .tag { background: var(--tag-bg); color: var(--fg); padding: 4px 8px; border-radius: 12px; font-size: 12px; }
-    .recruitment-card .apply-btn { float: right; padding: 6px 12px; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .recruitment-card .apply-btn { position: absolute; top: 50%; right: 15px; transform: translateY(-50%); padding: 6px 12px; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -34,14 +34,18 @@
 
   <div class="toolbar">
     <button onclick="location.href='jikanwari.html'">時間割</button>
-    <button onclick="location.href='board.html'" class="active">募集掲示板</button>
+    <button onclick="location.href='board.html'" class="active">募集掲示板</button> <button onclick="location.href='calendar.html'">カレンダー</button>
+    <button onclick="location.href='connect.html'">つながる</button>
+    <button onclick="location.href='chat.html'">チャット</button>
     <button onclick="location.href='mypage.html'">マイページ</button>
   </div>
 
   <main>
     <div class="filter-section">
-      <input type="text" id="filterCategory" placeholder="カテゴリで検索...">
-      <input type="text" id="filterLocation" placeholder="場所で検索...">
+      <input type="text" id="filterCategory" placeholder="カテゴリ (例: 勉強)">
+      <input type="text" id="filterLocation" placeholder="場所 (例: 図書館)">
+      <input type="text" id="filterMultiSlot" placeholder="複数コマ (例: 月-1,火-3)" style="flex:1;">
+      <button id="filterBtn" style="padding: 8px 12px;">検索</button>
     </div>
 
     <a href="create_recruitment.html" class="create-btn">＋ 新しい募集を作成する</a>
@@ -62,12 +66,33 @@
     const filterCategory = document.getElementById('filterCategory');
     const filterLocation = document.getElementById('filterLocation');
 
+    // URLからパラメータを取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const dayParam = urlParams.get('day');
+    const slotParam = urlParams.get('slot');
+
     // 募集一覧を読み込んで表示する関数
     async function loadRecruitments() {
       let url = `${API}/recruitments?`;
       const params = new URLSearchParams();
-      if (filterCategory.value) params.append('category', filterCategory.value);
-      if (filterLocation.value) params.append('location', filterLocation.value);
+      
+      // 複数コマ入力欄を取得
+      const multiSlotInput = document.getElementById('filterMultiSlot');
+
+      // 1. 複数コマフィルター (最優先)
+      if (multiSlotInput.value.trim()) {
+        params.append('multi_slots', multiSlotInput.value.trim());
+      
+      // 2. URLパラメータ (jikanwari.htmlからの遷移)
+      } else if (dayParam && slotParam) {
+        params.append('day', dayParam);
+        params.append('slot', slotParam);
+      
+      // 3. 通常のフィルター
+      } else {
+        if (filterCategory.value) params.append('category', filterCategory.value);
+        if (filterLocation.value) params.append('location', filterLocation.value);
+      }
       
       const res = await fetch(url + params.toString());
       const recruitments = await res.json();
@@ -82,9 +107,9 @@
         const card = document.createElement('div');
         card.className = 'recruitment-card';
 
-        // 日時を読みやすい形式にフォーマット
-        const startTime = new Date(rec.start_time).toLocaleString('ja-JP');
-        const endTime = new Date(rec.end_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        // 日時のフォーマット処理を削除
+        // const startTime = new Date(rec.start_time).toLocaleString('ja-JP');
+        // const endTime = new Date(rec.end_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
         card.innerHTML = `
           <h3>${rec.title}</h3>
@@ -93,12 +118,10 @@
             <span class="tag">📁 ${rec.category || '指定なし'}</span>
             <span class="tag">📍 ${rec.location || '指定なし'}</span>
             <span class="tag">👥 ${rec.max_participants}人</span>
-            <span class="tag">⏰ ${startTime} ~ ${endTime}</span>
+            <span class="tag">⏰ ${rec.day}曜 ${rec.slot}限</span>
           </div>
-          <p>
-            <button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>
-          </p>
-        `;
+          <button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>
+          `;
         recruitmentList.appendChild(card);
       });
     }
@@ -120,9 +143,8 @@
       }
     }
     
-    // フィルタ入力時に再読み込み
-    filterCategory.addEventListener('input', loadRecruitments);
-    filterLocation.addEventListener('input', loadRecruitments);
+    // 「検索」ボタンクリックで再読み込み
+    document.getElementById('filterBtn').addEventListener('click', loadRecruitments);
 
     // テーマ切替のロジック (mypage.htmlからコピー)
     const tt = document.getElementById('themeToggle');

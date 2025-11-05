@@ -15,15 +15,19 @@ CORS(app)
 DB_PATH = os.path.join(app.root_path, "coma_link.db")
 
 ## ---------- 共通 ----------
+# 大学のコマ時間割を定義 (ここで区切り時間を編集)
+# (例: 1限 09:00-10:30, 2限 10:40-12:10 ...)
+PERIOD_TIMES = {
+    1: ('09:00', '10:30'),
+    2: ('10:40', '12:10'),
+    3: ('13:00', '14:30'), # 昼休み
+    4: ('14:40', '16:10'),
+    5: ('16:15', '17:45'),
+    6: ('17:50', '19:20'),
+    7: ('19:30', '21:00'),
+}
 JP2ENG = {'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri'}
 ENG2JP = {v:k for k,v in JP2ENG.items()}
-PERIOD_TIMES = {
-    1:('09:00','10:30'),
-    2:('10:40','12:10'),
-    3:('13:00','14:30'),
-    4:('14:40','16:10'),
-    5:('16:15','17:45')
-}
 
 # def get_db():
 #     db = getattr(g, "_db", None)
@@ -103,7 +107,21 @@ def init_db():
         )
     ''')
 
+    # ユーザー情報とプロフィールを保存するテーブル
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password TEXT NOT NULL,
+            grade INTEGER,      -- 学年
+            faculty TEXT,       -- 学部
+            department TEXT,    -- 学科
+            circles TEXT        -- サークル (JSON配列の文字列)
+        )
+    ''')
+
     # 募集情報を保存するテーブル
+    # 既存テーブルを削除 (募集情報を自動生成する際はコメントアウト)
+    #cur.execute('DROP TABLE IF EXISTS recruitments')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS recruitments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,8 +130,9 @@ def init_db():
             category TEXT,
             max_participants INTEGER DEFAULT 2,
             location TEXT,
-            start_time TEXT NOT NULL,
-            end_time TEXT NOT NULL,
+            date TEXT NOT NULL,      -- (YYYY-MM-DD)
+            day TEXT NOT NULL,      -- '月', '火' など
+            slot INTEGER NOT NULL,  -- 1, 2, 3 など
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -269,9 +288,70 @@ def match():
     result = [{"username":u, "slots":s} for u,s in matches.items()]
     return jsonify(result)
 
-## ---------- 簡易ログイン (dummy) ----------
+## ---------- ユーザー管理 API ----------
+@app.route("/profile", methods=["GET", "PUT"])
+def profile():
+    db = get_db()
+    username = request.args.get("username")
+    
+    if request.method == "GET":
+        cur = db.execute("SELECT grade, faculty, department, circles FROM users WHERE username = ?", (username,))
+        profile_data = cur.fetchone()
+        return jsonify(dict(profile_data) if profile_data else {})
+
+    if request.method == "PUT":
+        data = request.get_json()
+        db.execute(
+            """UPDATE users SET grade=?, faculty=?, department=?, circles=?
+               WHERE username = ?""",
+            (
+                data.get('grade'),
+                data.get('faculty'),
+                data.get('department'),
+                json.dumps(data.get('circles', [])), # サークルはJSON文字列として保存
+                username
+            )
+        )
+        db.commit()
+        return jsonify(success=True)
+
+@app.route("/register", methods=["POST"])
+def register():
+    db = get_db()
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        return jsonify(success=False, message="ユーザー名とパスワードは必須です"), 400
+    
+    try:
+        # ユーザーを追加 (プロフィール項目は後で編集可能)
+        db.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, password)
+        )
+        db.commit()
+        return jsonify(success=True)
+    except sqlite3.IntegrityError:
+        # ユーザー名が既に存在
+        return jsonify(success=False, message="そのユーザー名は既に使用されています"), 400
+
+# パスワードをチェックしてログイン
 @app.route("/login", methods=["POST"])
 def login():
+    db = get_db()
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    cur = db.execute("SELECT password FROM users WHERE username = ?", (username,))
+    user_row = cur.fetchone()
+    
+    if user_row and user_row['password'] == password: # 本来はハッシュを比較
+        return jsonify(success=True)
+    else:
+        return jsonify(success=False, message="ユーザー名またはパスワードが違います")
 
     return jsonify(success=True)
 
@@ -282,21 +362,21 @@ def home(): return "Coma‑Link backend running"
 def create_recruitment():
     db = get_db()
     data = request.get_json()
-    # 必須項目のチェック
-    if not all(k in data for k in ['creator_username', 'title', 'start_time', 'end_time']):
+    if not all(k in data for k in ['creator_username', 'title', 'date', 'day', 'slot']):
         return jsonify(success=False, message="必須項目が不足しています"), 400
 
     cur = db.execute('''
-        INSERT INTO recruitments (creator_username, title, category, max_participants, location, start_time, end_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO recruitments (creator_username, title, category, max_participants, location, date, day, slot)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         data['creator_username'],
         data['title'],
         data.get('category'),
         data.get('max_participants', 2),
         data.get('location'),
-        data['start_time'],
-        data['end_time']
+        data['date'],     # ▼▼▼ 追記 ▼▼▼
+        data['day'],      
+        data['slot']      
     ))
     db.commit()
     return jsonify(success=True, recruitment_id=cur.lastrowid)
@@ -309,20 +389,45 @@ def get_recruitments():
     query = "SELECT * FROM recruitments WHERE 1=1"
     params = []
     
-    # カテゴリでの絞り込み
-    if 'category' in request.args:
-        query += " AND category = ?"
-        params.append(request.args['category'])
+    multi_slots_query = []
     
-    # 場所での絞り込み
-    if 'location' in request.args:
-        query += " AND location = ?"
-        params.append(request.args['location'])
+    # 複数コマ検索 ('multi_slots') の処理
+    if 'multi_slots' in request.args and request.args['multi_slots']:
+        # "月-1,火-3,水-5" のような文字列をパース
+        slot_pairs = request.args['multi_slots'].split(',')
+        for pair in slot_pairs:
+            parts = pair.split('-')
+            if len(parts) == 2:
+                day, slot = parts[0].strip(), parts[1].strip()
+                if day and slot.isdigit():
+                    multi_slots_query.append("(day = ? AND slot = ?)")
+                    params.extend([day, int(slot)])
         
-    # 指定した時間以降に開始される募集
-    if 'start_after' in request.args:
-        query += " AND start_time >= ?"
-        params.append(request.args['start_after'])
+        if multi_slots_query:
+            query += " AND (" + " OR ".join(multi_slots_query) + ")"
+
+    # (カテゴリ、場所、単一の曜日/コマの絞り込み)
+    # multi_slotsが指定されていない場合のみ、他の条件を適用
+    else:
+        if 'category' in request.args:
+            query += " AND category = ?"
+            params.append(request.args['category'])
+
+        if 'location' in request.args:
+            query += " AND location = ?"
+            params.append(request.args['location'])
+            
+        if 'date' in request.args:
+            query += " AND date = ?"
+            params.append(request.args['date'])
+
+        if 'day' in request.args:
+            query += " AND day = ?"
+            params.append(request.args['day'])
+
+        if 'slot' in request.args:
+            query += " AND slot = ?"
+            params.append(request.args['slot'])
 
     cur = db.execute(query, params)
     recruitments = [dict(row) for row in cur.fetchall()]
@@ -373,6 +478,57 @@ def update_application_status(app_id):
     db.execute("UPDATE participants SET status = ? WHERE id = ?", (new_status, app_id))
     db.commit()
     return jsonify(success=True)
+
+# ヒートマップ表示用API
+@app.route("/heatmap", methods=["GET"])
+def get_heatmap():
+    db = get_db()
+    
+    # 基本クエリ: コマごとに募集数をカウント
+    query = """
+        SELECT r.day, r.slot, COUNT(r.id) as count
+        FROM recruitments r
+    """
+    params = []
+    
+    # --- フィルタリング ---
+    # フィルタ条件を格納するリスト
+    filters = []
+    
+    # フィルタ用のJOIN (フィルタが指定された場合のみ users と JOIN)
+    join_clause = ""
+    
+    if request.args.get('grade') or request.args.get('faculty') or request.args.get('circles'):
+        join_clause = " JOIN users u ON r.creator_username = u.username "
+    
+    if request.args.get('grade'):
+        filters.append(" u.grade = ? ")
+        params.append(request.args.get('grade'))
+        
+    if request.args.get('faculty'):
+        filters.append(" u.faculty = ? ")
+        params.append(request.args.get('faculty'))
+
+    # サークル (部分一致検索)
+    if request.args.get('circles'):
+        filters.append(" u.circles LIKE ? ")
+        params.append(f"%{request.args.get('circles')}%") # '["スポーツ"]' などの検索
+
+    # クエリの組み立て
+    if filters:
+        query += join_clause + " WHERE " + " AND ".join(filters)
+        
+    query += " GROUP BY r.day, r.slot "
+    
+    cur = db.execute(query, params)
+    
+    # { "月-1": 5, "火-3": 10 } のような形式で返す
+    heatmap_data = {}
+    for row in cur.fetchall():
+        key = f"{row['day']}-{row['slot']}"
+        heatmap_data[key] = row['count']
+        
+    return jsonify(heatmap_data)
 
 # ---------- Run ----------
 if __name__ == "__main__":

@@ -43,14 +43,25 @@
       <label for="max_participants">最大人数</label>
       <input type="number" id="max_participants" value="2">
     </div>
+    <div class="form-group">
+      <label for="date">日付 *</label>
+      <input type="date" id="date" style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;">
+    </div>
     <div class="form-group time-group">
       <div style="flex:1;">
-        <label for="start_time">開始日時 *</label>
-        <input type="datetime-local" id="start_time">
+        <label for="day">曜日 *</label>
+        <select id="day" style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg);">
+          <option value="月">月曜日</option>
+          <option value="火">火曜日</option>
+          <option value="水">水曜日</option>
+          <option value="木">木曜日</option>
+          <option value="金">金曜日</option>
+        </select>
       </div>
       <div style="flex:1;">
-        <label for="end_time">終了日時 *</label>
-        <input type="datetime-local" id="end_time">
+        <label for="slot">コマ *</label>
+        <select id="slot" style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg);">
+          </select>
       </div>
     </div>
     <div class="form-group">
@@ -66,12 +77,23 @@
       location.href = 'login.html';
     }
 
+    // (コマ選択を動的に生成)
+    const slotSelect = document.getElementById('slot');
+    // 1限から6限までを仮定 (PERIOD_TIMESに合わせて変更)
+    for (let i = 1; i <= 6; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `${i}限`;
+        slotSelect.appendChild(option);
+    }
+
     async function createRecruitment() {
       const title = document.getElementById('title').value.trim();
-      const startTime = document.getElementById('start_time').value;
-      const endTime = document.getElementById('end_time').value;
+      const date = document.getElementById('date').value;
+      const day = document.getElementById('day').value;
+      const slot = parseInt(document.getElementById('slot').value, 10);
 
-      if (!title || !startTime || !endTime) {
+      if (!title || !date || !day || !slot) {
         alert('必須項目（*）を入力してください。');
         return;
       }
@@ -82,8 +104,9 @@
         category: document.getElementById('category').value.trim(),
         location: document.getElementById('location').value.trim(),
         max_participants: parseInt(document.getElementById('max_participants').value, 10),
-        start_time: startTime,
-        end_time: endTime
+        date: date,
+        day: day,
+        slot: slot
       };
 
       const res = await fetch(`${API}/recruitments`, {
