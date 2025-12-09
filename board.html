@@ -41,11 +41,16 @@
   </div>
 
   <main>
-    <div class="filter-section">
-      <input type="text" id="filterCategory" placeholder="カテゴリ (例: 勉強)">
-      <input type="text" id="filterLocation" placeholder="場所 (例: 図書館)">
-      <input type="text" id="filterMultiSlot" placeholder="複数コマ (例: 月-1,火-3)" style="flex:1;">
-      <button id="filterBtn" style="padding: 8px 12px;">検索</button>
+    <div class="filter-section" style="flex-direction:column; align-items:flex-start;">
+      <div style="margin-bottom:10px;">カテゴリで絞り込み:</div>
+      <div id="category-filters" style="display:flex; gap:5px; flex-wrap:wrap;">
+        <button onclick="filterByCategory('')" class="cat-btn active">全て</button>
+        </div>
+      <!-- 追加: 検索欄と検索ボタン -->
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <input id="filterLocation" placeholder="場所で絞る (任意)" />
+        <button id="filterBtn">検索</button>
+      </div>
     </div>
 
     <a href="create_recruitment.html" class="create-btn">＋ 新しい募集を作成する</a>
@@ -71,20 +76,34 @@
     const dayParam = urlParams.get('day');
     const slotParam = urlParams.get('slot');
 
+    const CATEGORIES = ["食事", "勉強", "スポーツ", "雑談", "趣味", "その他"];
+    let currentCategory = '';
+
+    // カテゴリボタン生成
+    const catContainer = document.getElementById('category-filters');
+    CATEGORIES.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.textContent = cat;
+        btn.className = 'cat-btn';
+        btn.onclick = () => filterByCategory(cat);
+        catContainer.appendChild(btn);
+    });
+
+    function filterByCategory(cat) {
+        currentCategory = cat;
+        // UI更新 (activeクラスの付け替えなど)
+        loadRecruitments();
+    }
+
     // 募集一覧を読み込んで表示する関数
     async function loadRecruitments() {
       let url = `${API}/recruitments?`;
       const params = new URLSearchParams();
-      
-      // 複数コマ入力欄を取得
-      const multiSlotInput = document.getElementById('filterMultiSlot');
 
-      // 1. 複数コマフィルター (最優先)
-      if (multiSlotInput.value.trim()) {
-        params.append('multi_slots', multiSlotInput.value.trim());
-      
-      // 2. URLパラメータ (jikanwari.htmlからの遷移)
-      } else if (dayParam && slotParam) {
+      if (currentCategory) params.append('category', currentCategory);
+
+      // 1. URLパラメータ (jikanwari.htmlからの遷移)
+      if (dayParam && slotParam) {
         params.append('day', dayParam);
         params.append('slot', slotParam);
       
@@ -118,7 +137,7 @@
             <span class="tag">📁 ${rec.category || '指定なし'}</span>
             <span class="tag">📍 ${rec.location || '指定なし'}</span>
             <span class="tag">👥 ${rec.max_participants}人</span>
-            <span class="tag">⏰ ${rec.day}曜 ${rec.slot}限</span>
+            <span class="tag">⏰ ${rec.day}曜 ${rec.start_slot}〜${rec.end_slot}限</span>
           </div>
           <button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>
           `;
@@ -129,22 +148,36 @@
     // 参加申請を行う関数
     async function applyToRecruitment(recId) {
       if (!confirm('この募集に参加申請しますか？')) return;
-
-      const res = await fetch(`${API}/recruitments/${recId}/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicant_username: user })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('参加申請を送りました！');
-      } else {
-        alert('エラーが発生しました: ' + data.message);
-      }
++      try {
++        const res = await fetch(`${API}/recruitments/${recId}/apply`, {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ applicant_username: user })
++        });
++        if (!res.ok) {
++          const txt = await res.text().catch(()=>null);
++          throw new Error(txt || `HTTP ${res.status}`);
++        }
++        const data = await res.json().catch(()=>({success:false, message:'invalid response'}));
++        if (data.success) {
++          alert('参加申請を送りました！');
++        } else {
++          alert('エラーが発生しました: ' + (data.message || '不明なエラー'));
++        }
++      } catch (e) {
++        console.error(e);
++        alert('参加申請に失敗しました: ' + (e.message || e));
++      }
     }
     
     // 「検索」ボタンクリックで再読み込み
-    document.getElementById('filterBtn').addEventListener('click', loadRecruitments);
+    const filterBtnEl = document.getElementById('filterBtn');
+    if (filterBtnEl) filterBtnEl.addEventListener('click', loadRecruitments);
+    // filterLocation は存在が保証されない可能性があるため取得時にチェックする
+    const filterLocationEl = document.getElementById('filterLocation');
+    if (!filterLocationEl) {
+      console.warn('filterLocation 要素が見つかりません');
+    }
 
     // テーマ切替のロジック (mypage.htmlからコピー)
     const tt = document.getElementById('themeToggle');

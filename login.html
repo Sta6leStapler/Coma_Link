@@ -131,17 +131,26 @@
         alert('ユーザー名とパスワードを入力してください');
         return;
       }
-      const res = await fetch('http://127.0.0.1:5000/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('登録に成功しました');
-        showLogin();
-      } else {
-        alert('登録に失敗しました：' + data.message);
+      try {
+        const res = await fetch('http://127.0.0.1:5000/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(()=>null);
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          alert('登録に成功しました');
+          showLogin();
+        } else {
+          alert('登録に失敗しました：' + (data.message || '不明なエラー'));
+        }
+      } catch (e) {
+        console.error(e);
+        alert('登録エラー: ' + (e.message || e));
       }
     }
 
@@ -153,18 +162,27 @@
         alert('ユーザー名とパスワードを入力してください');
         return;
       }
-      const res = await fetch('http://127.0.0.1:5000/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('ログインに成功しました');
-        localStorage.setItem('coma_user', username);
-        location.href = 'mypage.html'; // ログイン後のリダイレクト先
-      } else {
-        alert('ログインに失敗しました：' + data.message);
+      try {
+        const res = await fetch('http://127.0.0.1:5000/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(()=>null);
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          alert('ログインに成功しました');
+          localStorage.setItem('coma_user', username);
+          location.href = 'mypage.html';
+        } else {
+          alert('ログインに失敗しました：' + (data.message || '不明なエラー'));
+        }
+      } catch (e) {
+        console.error(e);
+        alert('ログインエラー: ' + (e.message || e));
       }
     }
   </script>

@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>空きコマ ヒートマップ | Coma‑Link</title>
+  <title>空きコマ アイコンマップ | Coma‑Link</title>
   <style>
-    /* mypage.htmlのスタイルを参考にしています */
-    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; }
-    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; }
+    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --danger: #f44336; }
+    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --danger: #d32f2f; }
     body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; }
     header { background: var(--panel); padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     header h1 { font-size: 1.2em; }
@@ -17,57 +16,65 @@
     .toolbar button.active { background: var(--highlight); color: #fff; }
     main { padding: 20px; }
 
-    /* ▼▼▼ ヒートマップ用スタイル ▼▼▼ */
+    /* フィルタ・共通スタイル */
     .filter-section {
       background: var(--panel); padding: 15px; border-radius: 8px; 
-      margin-bottom: 20px; display: flex; gap: 10px; align-items: center;
+      margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
     }
-    .filter-section select, .filter-section input {
-      padding: 8px; border: 1px solid var(--border); border-radius: 4px; 
-      background-color: var(--bg); color: var(--fg);
-    }
+    .filter-section select, .filter-section input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg); color: var(--fg); }
     
-    .timetable {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed; /* セル幅を均等に */
-    }
-    .timetable th, .timetable td {
-      border: 1px solid var(--border);
-      height: 80px; /* コマの高さ */
-      text-align: center;
-      vertical-align: middle;
-      padding: 4px;
-      position: relative;
-    }
-    .timetable th {
-      background: var(--panel);
-      font-size: 12px;
-    }
-    /* 授業コマのスタイル */
-    .course-cell {
-      background-color: var(--border);
-      font-size: 14px;
-      font-weight: bold;
-    }
-    /* 空きコマのスタイル */
-    .slot-cell {
+    /* 時間割テーブル */
+    .timetable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .timetable th, .timetable td { border: 1px solid var(--border); height: 80px; text-align: center; vertical-align: middle; padding: 2px; position: relative; overflow: hidden; }
+    .timetable th { background: var(--panel); font-size: 12px; }
+    .lunch-row th, .lunch-row td { height: 40px !important; background-color: rgba(0,0,0,0.05); }
+    html[data-theme="dark"] .lunch-row th, html[data-theme="dark"] .lunch-row td { background-color: rgba(255,255,255,0.05); }
+
+    .course-cell { background-color: var(--border); font-size: 12px; font-weight: bold; color: var(--fg); }
+    .slot-cell { cursor: pointer; transition: background-color 0.2s; }
+    .timetable .slot-cell:hover { background-color: var(--highlight) !important; }
+
+    /* アイコン */
+    .heatmap-content { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 2px; width: 100%; height: 100%; pointer-events: none; }
+    .heatmap-icon { font-size: 14px; background: var(--panel); border-radius: 50%; width: 20px; height: 20px; line-height: 20px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+    /* ▼▼▼ Phase 4 新機能用スタイル ▼▼▼ */
+    
+    /* 1. チラ見せポップアップ (Ticker) */
+    #tickerPopup {
+      display: none; position: absolute; z-index: 200;
+      width: 200px; padding: 8px; background: var(--panel); 
+      border: 2px solid var(--primary); border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 12px; white-space: nowrap; overflow: hidden;
       cursor: pointer;
-      transition: background-color 0.3s;
     }
-    .timetable .slot-cell:hover {
-      background-color: var(--highlight) !important; /* ホバー色 */
-    }
-    .slot-count {
-      font-size: 24px;
-      font-weight: bold;
-    }
-    #editModeBtn.active {
-      background-color: var(--primary) !important;
-      color: white;
-      font-weight: bold;
-    }
-    /* ▲▲▲ スタイル ▲▲▲ */
+    .ticker-content { display: inline-block; padding-left: 100%; animation: ticker 8s linear infinite; }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+    /* 2. 募集管理モーダル (詳細 & 作成) */
+    .modal-overlay { display: none; position: fixed; z-index: 300; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow: auto; }
+    .modal-container { background-color: var(--panel); margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 800px; border: 1px solid var(--border); }
+    
+    .modal-split { display: flex; gap: 20px; flex-wrap: wrap; }
+    .modal-left { flex: 1; min-width: 300px; border-right: 1px solid var(--border); padding-right: 20px; }
+    .modal-right { flex: 1; min-width: 300px; padding-left: 10px; }
+    @media (max-width: 700px) { .modal-left { border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 20px; padding-right: 0; } .modal-right { padding-left: 0; } }
+
+    /* 募集リスト */
+    .rec-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; }
+    .rec-item h4 { margin: 0 0 5px 0; font-size: 14px; }
+    .rec-meta { font-size: 11px; color: #666; margin-bottom: 5px; }
+    .apply-mini-btn { background: var(--primary); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
+
+    /* フォーム */
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 12px; margin-bottom: 2px; }
+    .form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+    .preset-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-right: 4px; margin-bottom: 4px; }
+    
+    /* 講義登録ボタン */
+    #editModeBtn.active { background-color: var(--primary) !important; color: white; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -85,43 +92,99 @@
     <button onclick="location.href='mypage.html'">マイページ</button>
   </div>
   <main>
-    <h2>空きコマ ヒートマップ</h2>
-    
     <div class="filter-section">
       <span>絞り込み:</span>
-      <select id="filterGrade">
-        <option value="">学年 (すべて)</option>
-        <option value="1">1年</option><option value="2">2年</option>
-        <option value="3">3年</option><option value="4">4年</option>
-      </select>
-      <input type="text" id="filterFaculty" placeholder="学部 (例: 工学部)">
-      <input type="text" id="filterCircles" placeholder="サークル (例: テニス)">
+      <select id="filterGrade"><option value="">学年 (すべて)</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option><option value="4">4年</option></select>
+      <input type="text" id="filterFaculty" placeholder="学部">
+      <input type="text" id="filterCircles" placeholder="サークル">
       <button id="filterBtn">検索</button>
       <button id="filterResetBtn">リセット</button>
       <button id="editModeBtn" style="margin-left: auto; background-color: var(--border);">講義を登録</button>
     </div>
 
     <table class="timetable" id="heatmapTable">
-      <thead>
-        <tr>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        </tbody>
+      <thead><tr><th></th></tr></thead>
+      <tbody></tbody>
     </table>
 
-    <div id="courseModal" style="display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
+    <div id="tickerPopup">
+      <span id="tickerText" class="ticker-content">読み込み中...</span>
+      <div style="font-size:10px; text-align:center; color:var(--primary); margin-top:4px;">(クリックで詳細・作成)</div>
+    </div>
+
+    <div id="recruitmentModal" class="modal-overlay">
+      <div class="modal-container">
+        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+          <h2 id="recModalTitle" style="margin:0;">募集中の一覧</h2>
+          <button onclick="closeRecModal()" style="font-size:24px; cursor:pointer; background:none; border:none; color:var(--fg);">&times;</button>
+        </div>
+
+        <div class="modal-split">
+          <div class="modal-left">
+            <h3>📢 参加できる募集</h3>
+            <div id="modalRecList" style="max-height:400px; overflow-y:auto;">
+              </div>
+          </div>
+
+          <div class="modal-right">
+            <h3>➕ 新しく募集する</h3>
+            <div id="presetButtons" style="margin-bottom:10px;"></div>
+            
+            <div class="form-group">
+              <label>タイトル</label>
+              <input type="text" id="newTitle" placeholder="例: ランチ行きませんか？">
+            </div>
+            
+            <div class="form-group" style="display:flex; gap:5px;">
+              <div style="flex:1;">
+                <label>カテゴリ</label>
+                <select id="newCategorySelect" onchange="toggleCategoryInput()">
+                  </select>
+                <input type="text" id="newCategoryInput" style="display:none; margin-top:2px;" placeholder="カテゴリ名">
+              </div>
+              <div style="width:80px;">
+                <label>人数</label>
+                <input type="number" id="newMax" value="2" min="2">
+              </div>
+            </div>
+
+            <div class="form-group" style="display:flex; gap:5px;">
+              <div style="flex:1;">
+                <label>開始コマ</label>
+                <select id="newStartSlot" onchange="updateFreeUsers()"></select>
+              </div>
+              <div style="flex:1;">
+                <label>終了コマ</label>
+                <select id="newEndSlot" onchange="updateFreeUsers()"></select>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>場所</label>
+              <input type="text" id="newLocation" placeholder="場所">
+            </div>
+
+            <div style="text-align:center; margin:15px 0; font-weight:bold; color:var(--primary);">
+              <span id="modalFreeUsers">空きユーザー: 計算中...</span>
+            </div>
+
+            <button onclick="createNewRecruitment()" style="width:100%; padding:10px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer;">募集を作成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="courseModal" class="modal-overlay">
       <div style="background-color:var(--panel); margin:15% auto; padding:20px; border:1px solid var(--border); border-radius:8px; width:80%; max-width:500px;">
-        <h3 id="modalTitle">コマの登録</h3>
+        <h3 id="courseModalTitle">コマの登録</h3>
         <div style="margin-bottom:15px;">
-          <label for="courseContent">授業名 (教室/教員名など)</label>
-          <input type="text" id="courseContent" placeholder="例: Web工学 (A-101 / 山田太郎)" style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;">
+          <label>授業名</label>
+          <input type="text" id="courseContent" style="width:100%; padding:8px;" placeholder="授業名">
         </div>
         <div style="display:flex; justify-content:space-between;">
-          <button id="modalDeleteBtn" style="background-color:#f44336; color:white; padding:10px; border:none; border-radius:4px; cursor:pointer;">削除 (空きコマに戻す)</button>
+          <button id="modalDeleteBtn" style="background-color:var(--danger); color:white; padding:10px; border:none; border-radius:4px; cursor:pointer;">削除</button>
           <div>
-            <button id="modalCancelBtn" style="background-color:var(--border); color:var(--fg); padding:10px; border:none; border-radius:4px; cursor:pointer; margin-right:10px;">キャンセル</button>
+            <button onclick="document.getElementById('courseModal').style.display='none'" style="margin-right:10px; padding:10px;">キャンセル</button>
             <button id="modalSaveBtn" style="background-color:var(--primary); color:white; padding:10px; border:none; border-radius:4px; cursor:pointer;">保存</button>
           </div>
         </div>
@@ -134,271 +197,339 @@
     const user = localStorage.getItem('coma_user');
     if(!user){ alert('ログインしてください'); location.href='login.html'; }
 
-    const tableBody = document.querySelector('#heatmapTable tbody');
     const days = ['月', '火', '水', '木', '金'];
-    const maxPeriod = 7; // PERIOD_TIMES (DB側) と合わせてください
+    const maxPeriod = 8; 
+    const periodTimes = { 1:'09:00-10:30', 2:'10:40-12:10', 3:'12:10-13:00', 4:'13:00-14:30', 5:'14:40-16:10', 6:'16:15-17:45', 7:'17:50-19:20', 8:'19:30-21:00' };
 
-    const periodTimes = {
-      1: '09:00-10:30', 2: '10:40-12:10', 3: '13:00-14:30',
-      4: '14:40-16:10', 5: '16:15-17:45', 6: '17:50-19:20', 7: '19:30-21:00'
+    // 状態管理
+    let myCourses = {};
+    let isEditMode = false;
+    let currentSelected = { day: '', slot: 0 }; // 現在操作中のコマ
+    let tickerTimer = null; // ポップアップを閉じるタイマー
+
+    // カテゴリ設定
+    const CATEGORY_SETTINGS = {
+        "食事": {icon: "🍱", title: "ランチに行きませんか？"},
+        "勉強": {icon: "📖", title: "課題一緒にやりましょう"},
+        "スポーツ": {icon: "⚽", title: "スポーツしましょう"},
+        "雑談": {icon: "💬", title: "空きコマ雑談"},
+        "その他": {icon: "✨", title: ""}
     };
-    let currentModalParams = { day: '', slot: 0 }; // モーダル用のグローバル変数
-    let isEditMode = false; // 講義登録モード管理用
+    const CATEGORY_ICONS = {}; 
+    Object.keys(CATEGORY_SETTINGS).forEach(k => CATEGORY_ICONS[k] = CATEGORY_SETTINGS[k].icon);
 
-    let myCourses = {}; // 自分の授業を格納するオブジェクト
+    // --- 初期化 ---
+    async function initializeTimetable() {
+      await loadCourses();
+      renderTable();
+      await loadHeatmap();
+      setupModalInputs();
+    }
 
-    // 自分の授業を読み込む
     async function loadCourses() {
       const res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
       const list = await res.json();
-      
-      myCourses = {}; // 初期化
-      list.forEach(c => {
-        const key = `${c.day}-${c.slot}`; // "月-1" のようなキー
-        myCourses[key] = c.content; // 授業名
-      });
+      myCourses = {};
+      list.forEach(c => myCourses[`${c.day}-${c.slot}`] = c.content);
     }
 
-    /**
-     * 値に応じてヒートマップの色(HSL)を返す
-     * (少: 赤 H:0) -> (中: 黄 H:60) -> (多: 緑 H:120)
-     */
-    function getHeatmapColor(value, maxValue) {
-      if (value === 0 || maxValue === 0) {
-        return 'transparent'; // 0件は色なし
-      }
-      // 募集数を 0% (赤) から 100% (緑) の範囲にマッピング
-      const percentage = Math.min(value / maxValue, 1.0);
-      // HSLの色相(Hue)を 0 (赤) から 120 (緑) の間で計算
-      const hue = percentage * 120;
-      
-      // 彩度(Saturation)と輝度(Lightness)は固定
-      // 募集が少ないほど濃い色にしたい場合は、輝度(lightness)を調整
-      const saturation = '90%';
-      const lightness = '60%'; // 50%だと濃すぎるため少し明るく
-      
-      return `hsl(${hue}, ${saturation}, ${lightness})`;
-    }
-
-    // ヒートマップデータを取得・描画する関数
-    async function loadHeatmap() {
-      const params = new URLSearchParams();
-      // フィルタ条件を取得
-      const grade = document.getElementById('filterGrade').value;
-      const faculty = document.getElementById('filterFaculty').value.trim();
-      const circles = document.getElementById('filterCircles').value.trim();
-      
-      if (grade) params.append('grade', grade);
-      if (faculty) params.append('faculty', faculty);
-      if (circles) params.append('circles', circles);
-
-      const res = await fetch(`${API}/heatmap?${params.toString()}`);
-      if (!res.ok) {
-        // 404エラー (DB側の/heatmap未実装) など
-        console.error("heatmapの読み込みに失敗しました。");
-        return;
-      }
-      const data = await res.json(); // (例: {"月-1": 5, "火-3": 10})
-
-      // 全セルのカウントと色をリセット
-      document.querySelectorAll('.slot-cell').forEach(cell => {
-        cell.querySelector('.slot-count').textContent = '0';
-        cell.style.backgroundColor = 'transparent'; // 色をリセット
-      });
-
-      let maxCount = 0;
-      Object.values(data).forEach(count => {
-        if (count > maxCount) maxCount = count;
-      });
-
-      // 取得したデータでセルを更新
-      for (const [key, count] of Object.entries(data)) {
-        const cell = document.getElementById(`cell-${key}`);
-        // 授業がないコマ(cellが存在する) AND 募集が1件以上あるコマのみ更新
-        if (cell && count > 0) { 
-          cell.querySelector('.slot-count').textContent = count;
-          
-          // ヒートマップの色付け (赤→黄→緑)
-          cell.style.backgroundColor = getHeatmapColor(count, maxCount);
-        }
-      }
-    }
-
-    // フィルタボタンのイベント
-    document.getElementById('filterBtn').onclick = loadHeatmap;
-    document.getElementById('filterResetBtn').onclick = () => {
-      document.getElementById('filterGrade').value = '';
-      document.getElementById('filterFaculty').value = '';
-      document.getElementById('filterCircles').value = '';
-      loadHeatmap();
-    };
-
-    // 「講義を登録」ボタンのイベント
-    const editModeBtn = document.getElementById('editModeBtn');
-    editModeBtn.onclick = () => {
-      isEditMode = !isEditMode; // モード切替
-      if (isEditMode) {
-        editModeBtn.classList.add('active');
-        editModeBtn.textContent = '登録モード実行中 (解除)';
-        alert('講義登録モードになりました。\n登録・編集したいコマをクリックしてください。');
-      } else {
-        editModeBtn.classList.remove('active');
-        editModeBtn.textContent = '講義を登録';
-      }
-    };
-
-    // ページ読み込み時に授業とヒートマップを両方読み込む
-    async function initializeTimetable() {
-      await loadCourses(); // 1. まず自分の授業を読み込む
-      
-      // 2. 授業情報を元に表を生成
-      tableBody.innerHTML = ''; // 表をリセット
-
-      // 曜日ヘッダー(thead)をリセット
-      const headerRow = document.querySelector('#heatmapTable thead tr');
-      // 既存の曜日ヘッダー (日付) を削除 (最初の1列目「<th></th>」は残す)
-      while (headerRow.children.length > 1) {
-          headerRow.removeChild(headerRow.lastChild);
-      }
+    function renderTable() {
+      const tbody = document.querySelector('#heatmapTable tbody');
+      tbody.innerHTML = '';
+      const thead = document.querySelector('#heatmapTable thead tr');
+      while (thead.children.length > 1) thead.removeChild(thead.lastChild);
       
       const today = new Date();
       const dayMap = {'月':1, '火':2, '水':3, '木':4, '金':5};
-
-      
       days.forEach(day => {
         const th = document.createElement('th');
-        const dayOffset = dayMap[day] - today.getDay(); // 今日が月曜(1)で、ターゲットが火曜(2)なら offset=1
-        const targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + dayOffset);
-        
-        const dateString = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
-        th.innerHTML = `${day}<br><small>${dateString}</small>`;
-        headerRow.appendChild(th);
+        const dayOffset = dayMap[day] - today.getDay();
+        const d = new Date(today); d.setDate(today.getDate() + dayOffset);
+        th.innerHTML = `${day}<br><small>${d.getMonth()+1}/${d.getDate()}</small>`;
+        thead.appendChild(th);
       });
 
       for (let p = 1; p <= maxPeriod; p++) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<th>${p}限<br><small>${periodTimes[p] || ''}</small></th>`; 
+        // --- 表示ラベルの計算ロジック ---
+        let label = '';
+        let timeText = periodTimes[p] || '';
+
+        if (p === 3) {
+            tr.className = 'lunch-row';
+            label = '昼休み';
+        } else if (p < 3) {
+            label = `${p}限`; // 1, 2限
+        } else {
+            // p=4なら「3限」、p=5なら「4限」と表示する
+            label = `${p - 1}限`; 
+        }
+
+        tr.innerHTML = `<th>${label}<br><small>${timeText}</small></th>`;
+
         days.forEach(day => {
           const td = document.createElement('td');
-          const cellKey = `${day}-${p}`;
-          td.id = `cell-${cellKey}`; // IDを "cell-月-1" の形式に
+          const key = `${day}-${p}`;
+          td.id = `cell-${key}`;
 
-          if (myCourses[cellKey]) {
-            // 授業がある場合
+          if (myCourses[key]) {
             td.className = 'course-cell';
-            td.innerHTML = `<span>${myCourses[cellKey].replace(/\n/g, '<br>')}</span>`;
+            td.innerHTML = `<span>${myCourses[key]}</span>`;
           } else {
-            // 空きコマの場合
             td.className = 'slot-cell';
-            td.innerHTML = `<span class="slot-count">0</span>`;
           }
-
-          // クリックイベントを統一
-          td.onclick = () => {
-            if (isEditMode) {
-              // 編集モード時：常にモーダルを開く (空きコマでも授業コマでも)
-              const currentContent = myCourses[cellKey] || "";
-              openCourseModal(day, p, currentContent);
-            } else if (!myCourses[cellKey]) {
-              // 通常モード時：空きコマなら掲示板へ
-              location.href = `board.html?day=${day}&slot=${p}`;
-            }
-            // 通常モード時：授業コマなら何もしない
-          };
+          
+          td.onclick = (e) => handleCellClick(e, day, p);
           tr.appendChild(td);
         });
-        tableBody.appendChild(tr);
+        tbody.appendChild(tr);
       }
-      // 3. 最後にヒートマップを読み込む
-      await loadHeatmap();
     }
 
-    // モーダルを開く
-    function openCourseModal(day, slot, currentContent) {
-      currentModalParams = { day, slot }; // 現在のコマを保存
-      document.getElementById('modalTitle').textContent = `${day}曜 ${slot}限 の登録`;
-      document.getElementById('courseContent').value = currentContent;
+    async function loadHeatmap() {
+      const params = new URLSearchParams();
+      ['filterGrade','filterFaculty','filterCircles'].forEach(id => {
+        const val = document.getElementById(id).value;
+        if(val) params.append(id.replace('filter','').toLowerCase(), val);
+      });
+
+      const res = await fetch(`${API}/heatmap?${params.toString()}`);
+      const data = await res.json();
+
+      document.querySelectorAll('.slot-cell').forEach(c => { c.innerHTML = ''; c.style.backgroundColor = 'transparent'; });
+
+      for (const [key, item] of Object.entries(data)) {
+        const cell = document.getElementById(`cell-${key}`);
+        if (cell && item.count > 0 && !myCourses[key]) {
+          const div = document.createElement('div');
+          div.className = 'heatmap-content';
+          item.categories.forEach(cat => {
+            const span = document.createElement('span');
+            span.className = 'heatmap-icon';
+            span.textContent = CATEGORY_ICONS[cat] || '✨';
+            div.appendChild(span);
+          });
+          cell.appendChild(div);
+        }
+      }
+    }
+
+    // --- インタラクション (Phase 4) ---
+
+    // コマクリック時のハンドラ
+    function handleCellClick(e, day, slot) {
+      if (isEditMode) {
+        // 講義登録モード
+        openCourseModal(day, slot, myCourses[`${day}-${slot}`] || "");
+      } else if (!myCourses[`${day}-${slot}`]) {
+        // 空きコマモード
+        // 既にポップアップが開いていて、同じコマをクリック -> モーダルを開く
+        if (currentSelected.day === day && currentSelected.slot === slot && document.getElementById('tickerPopup').style.display === 'block') {
+           openRecruitmentModal(day, slot);
+        } else {
+           // ポップアップを表示 (1クリック目)
+           showTicker(e, day, slot);
+        }
+      }
+    }
+
+    // チラ見せポップアップ (Ticker)
+    async function showTicker(e, day, slot) {
+      currentSelected = { day, slot };
+      const popup = document.getElementById('tickerPopup');
+      const text = document.getElementById('tickerText');
       
-      // 授業が登録されていなければ「削除」ボタンを隠す
-      document.getElementById('modalDeleteBtn').style.display = currentContent ? 'block' : 'none';
+      // 位置合わせ
+      const rect = e.target.getBoundingClientRect();
+      popup.style.left = (rect.left + window.scrollX) + 'px';
+      popup.style.top = (rect.top + window.scrollY - 50) + 'px'; // 少し上に
+      popup.style.display = 'block';
+      text.textContent = "読み込み中...";
+
+      // データ取得
+      const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
+      const list = await res.json();
+
+      if (list.length === 0) {
+        text.style.animation = 'none';
+        text.textContent = "募集中 0件 (クリックで作成)";
+      } else {
+        const titles = list.map(r => `【${CATEGORY_ICONS[r.category]||'✨'}${r.title}】`).join("  ");
+        text.textContent = titles + "     " + titles; // ループ用に長めに
+        text.style.animation = 'ticker 10s linear infinite';
+      }
+
+      // 5秒後に自動で閉じる
+      if (tickerTimer) clearTimeout(tickerTimer);
+      tickerTimer = setTimeout(() => { popup.style.display = 'none'; }, 5000);
       
+      // ポップアップ自体のクリックでもモーダルへ
+      popup.onclick = () => openRecruitmentModal(day, slot);
+    }
+
+    // --- 募集管理モーダル ---
+
+    async function openRecruitmentModal(day, slot) {
+      document.getElementById('tickerPopup').style.display = 'none'; // ポップアップ消す
+      const modal = document.getElementById('recruitmentModal');
+      document.getElementById('recModalTitle').textContent = `${day}曜 ${slot}限 の募集`;
+      
+      // 左側: リスト表示
+      const listDiv = document.getElementById('modalRecList');
+      listDiv.innerHTML = '読み込み中...';
+      const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
+      const list = await res.json();
+      
+      listDiv.innerHTML = '';
+      if(list.length === 0) {
+        listDiv.innerHTML = '<p style="color:#666;">この時間の募集はまだありません。<br>右側のフォームから作成してみましょう！</p>';
+      } else {
+        list.forEach(rec => {
+          const div = document.createElement('div');
+          div.className = 'rec-item';
+          div.innerHTML = `
+            <h4>${CATEGORY_ICONS[rec.category]||'✨'} ${rec.title}</h4>
+            <div class="rec-meta">
+              👤 ${rec.creator_username} | 📍 ${rec.location || '-'} <br>
+              ⏰ ${rec.start_slot}〜${rec.end_slot}限 | 👥 ${rec.max_participants}名まで
+            </div>
+            <button class="apply-mini-btn" onclick="applyRec(${rec.id})">参加申請</button>
+          `;
+          listDiv.appendChild(div);
+        });
+      }
+
+      // 右側: 新規作成フォーム初期化
+      setupCreateForm(day, slot);
+
+      modal.style.display = 'block';
+    }
+
+    function closeRecModal() {
+      document.getElementById('recruitmentModal').style.display = 'none';
+      loadHeatmap(); // 更新されているかもしれないので再描画
+    }
+
+    // 新規作成フォームのセットアップ
+    function setupModalInputs() {
+      // カテゴリ選択肢
+      const catSelect = document.getElementById('newCategorySelect');
+      Object.keys(CATEGORY_SETTINGS).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        catSelect.appendChild(opt);
+      });
+      // プリセットボタン
+      const presets = document.getElementById('presetButtons');
+      Object.entries(CATEGORY_SETTINGS).forEach(([k, v]) => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = `${v.icon} ${k}`;
+        btn.onclick = () => {
+          document.getElementById('newCategorySelect').value = k;
+          toggleCategoryInput();
+          if(v.title) document.getElementById('newTitle').value = v.title;
+        };
+        presets.appendChild(btn);
+      });
+      // コマ選択肢
+      const sSlot = document.getElementById('newStartSlot');
+      const eSlot = document.getElementById('newEndSlot');
+      for(let i=1; i<=8; i++){
+        sSlot.add(new Option(i+'限', i));
+        eSlot.add(new Option(i+'限', i));
+      }
+    }
+
+    function setupCreateForm(day, slot) {
+      document.getElementById('newStartSlot').value = slot;
+      document.getElementById('newEndSlot').value = slot;
+      updateFreeUsers();
+    }
+
+    function toggleCategoryInput() {
+      const val = document.getElementById('newCategorySelect').value;
+      const input = document.getElementById('newCategoryInput');
+      input.style.display = (val === 'その他') ? 'block' : 'none';
+    }
+
+    async function updateFreeUsers() {
+      const day = currentSelected.day; // モーダルを開いている曜日
+      const s = document.getElementById('newStartSlot').value;
+      const e = document.getElementById('newEndSlot').value;
+      if(!day || !s) return;
+      
+      document.getElementById('modalFreeUsers').textContent = "計算中...";
+      const res = await fetch(`${API}/free_users?day=${day}&start_slot=${s}&end_slot=${e}`);
+      const data = await res.json();
+      document.getElementById('modalFreeUsers').textContent = `この期間の空きユーザー: 約 ${data.count} 人`;
+    }
+
+    async function createNewRecruitment() {
+      let cat = document.getElementById('newCategorySelect').value;
+      if(cat === 'その他') cat = document.getElementById('newCategoryInput').value;
+      
+      const body = {
+        creator_username: user,
+        title: document.getElementById('newTitle').value,
+        category: cat,
+        max_participants: parseInt(document.getElementById('newMax').value),
+        location: document.getElementById('newLocation').value,
+        date: new Date().toISOString().split('T')[0], // 簡易的に今日
+        day: currentSelected.day,
+        start_slot: parseInt(document.getElementById('newStartSlot').value),
+        end_slot: parseInt(document.getElementById('newEndSlot').value)
+      };
+      
+      if(!body.title || !body.category) { alert('タイトルとカテゴリは必須です'); return; }
+
+      const res = await fetch(`${API}/recruitments`, {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      });
+      if(res.ok) {
+        alert('募集を作成しました！');
+        openRecruitmentModal(body.day, body.start_slot); // リストを再読み込み
+      } else {
+        alert('作成失敗');
+      }
+    }
+
+    async function applyRec(id) {
+        if(!confirm('参加申請しますか？')) return;
+        const res = await fetch(`${API}/recruitments/${id}/apply`, {
+            method: 'POST', headers: {'Content-Type':'application/json'}, 
+            body: JSON.stringify({applicant_username: user})
+        });
+        if(res.ok) alert('申請しました！');
+    }
+
+    // 講義登録関連 (既存)
+    function openCourseModal(day, slot, content) {
+      currentSelected = {day, slot};
+      document.getElementById('courseContent').value = content;
       document.getElementById('courseModal').style.display = 'block';
     }
+    document.getElementById('modalSaveBtn').onclick = async () => {
+      await fetch(`${API}/courses`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:user, day:currentSelected.day, slot:currentSelected.slot, content:document.getElementById('courseContent').value})});
+      document.getElementById('courseModal').style.display='none'; initializeTimetable();
+    };
+    document.getElementById('modalDeleteBtn').onclick = async () => {
+      await fetch(`${API}/courses`, {method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:user, day:currentSelected.day, slot:currentSelected.slot})});
+      document.getElementById('courseModal').style.display='none'; initializeTimetable();
+    };
 
-    // モーダルを閉じる
-    function closeCourseModal() {
-      document.getElementById('courseModal').style.display = 'none';
-    }
+    // その他イベント
+    document.getElementById('filterBtn').onclick = loadHeatmap;
+    document.getElementById('filterResetBtn').onclick = () => { ['filterGrade','filterFaculty','filterCircles'].forEach(i=>document.getElementById(i).value=''); loadHeatmap(); };
+    const editBtn = document.getElementById('editModeBtn');
+    editBtn.onclick = () => { isEditMode = !isEditMode; editBtn.classList.toggle('active'); editBtn.textContent = isEditMode ? '登録モード (解除)' : '講義を登録'; };
 
-    // 授業を保存 (POST)
-    async function saveCourse() {
-      const content = document.getElementById('courseContent').value;
-      const { day, slot } = currentModalParams;
-
-      const res = await fetch(`${API}/courses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user,
-          day: day,
-          slot: slot,
-          content: content
-        })
-      });
-      
-      if (res.ok) {
-        alert('授業を保存しました');
-        closeCourseModal();
-        await initializeTimetable(); // 時間割を再描画
-      } else {
-        alert('保存に失敗しました');
-      }
-    }
-    
-    // 授業を削除 (DELETE)
-    async function deleteCourse() {
-      if (!confirm('このコマを「空きコマ」に戻しますか？')) return;
-      
-      const { day, slot } = currentModalParams;
-
-      const res = await fetch(`${API}/courses`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user,
-          day: day,
-          slot: slot
-        })
-      });
-      
-      if (res.ok) {
-        alert('授業を削除しました');
-        closeCourseModal();
-        await initializeTimetable(); // 時間割を再描画
-      } else {
-        alert('削除に失敗しました');
-      }
-    }
-
-    // モーダルのボタンにイベントを割り当て
-    document.getElementById('modalSaveBtn').onclick = saveCourse;
-    document.getElementById('modalDeleteBtn').onclick = deleteCourse;
-    document.getElementById('modalCancelBtn').onclick = closeCourseModal;
-
-    // テーマ切替のロジック
+    // テーマ
     const tt=document.getElementById('themeToggle');
-    function applyTheme(t){
-      document.documentElement.setAttribute('data-theme',t);
-      tt.textContent=t==='dark'?'☀️':'🌙';
-      localStorage.setItem('coma_theme',t);
-    }
-    tt.addEventListener('click',()=>applyTheme(
-      document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'
-    ));
+    function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); tt.textContent=t==='dark'?'☀️':'🌙'; localStorage.setItem('coma_theme',t); }
+    tt.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'));
     applyTheme(localStorage.getItem('coma_theme')||'light');
 
-    // ★★★ 初期ロード ★★★
     initializeTimetable();
   </script>
 </body>
