@@ -1,0 +1,244 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "title": "水曜ランチ会",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_a",
+      "participants_count": 4,
+      "max_participants": 5
+    },
+    {
+      "id": "2",
+      "title": "金曜3-4限自習会",
+      "category_id": "study",
+      "day_id": "FRI",
+      "slot_start_id": "3",
+      "slot_end_id": "4",
+      "owner_user_id": "user_b",
+      "participants_count": 2,
+      "max_participants": 6
+    },
+    {
+      "id": "3",
+      "title": "ランチ",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "3",
+      "slot_end_id": "3",
+      "owner_user_id": "user_me",
+      "participants_count": 4,
+      "max_participants": 4
+    },
+    {
+      "id": "4",
+      "title": "実システム",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "4",
+      "slot_end_id": "5",
+      "owner_user_id": "user_me",
+      "participants_count": 2,
+      "max_participants": 8
+    },
+    {
+      "id": "5",
+      "title": "ランチ",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "3",
+      "slot_end_id": "3",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "6",
+      "title": "ランチ",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "7",
+      "title": "作業",
+      "category_id": "work",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "8",
+      "title": "雑談",
+      "category_id": "chat",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "9",
+      "title": "作業",
+      "category_id": "work",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "10",
+      "title": "遊び",
+      "category_id": "play",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "user_me",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "11",
+      "title": "33",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "2",
+      "slot_end_id": "2",
+      "owner_user_id": "22",
+      "participants_count": 1,
+      "max_participants": 4
+    },
+    {
+      "id": "12",
+      "title": "ランチ",
+      "category_id": "meal",
+      "day_id": "WED",
+      "slot_start_id": "LUNCH",
+      "slot_end_id": "LUNCH",
+      "owner_user_id": "22",
+      "participants_count": 1,
+      "max_participants": 4
+    }
+  ],
+  "class_schedule_by_user": {
+    "22": [
+      {
+        "day_id": "FRI",
+        "slot_id": "1",
+        "title": "",
+        "classroom": ""
+      },
+      {
+        "day_id": "MON",
+        "slot_id": "2",
+        "title": "",
+        "classroom": ""
+      },
+      {
+        "day_id": "MON",
+        "slot_id": "1",
+        "title": "",
+        "classroom": ""
+      },
+      {
+        "day_id": "WED",
+        "slot_id": "5",
+        "title": "",
+        "classroom": ""
+      },
+      {
+        "day_id": "TUE",
+        "slot_id": "3",
+        "title": "1",
+        "classroom": "1"
+      },
+      {
+        "day_id": "THU",
+        "slot_id": "5",
+        "title": "22",
+        "classroom": "203"
+      }
+    ]
+  },
+  "user_name": "2",
+  "current_user_id": "22",
+  "event_participants": {
+    "1": [
+      "user_me"
+    ],
+    "4": [
+      "user_me"
+    ],
+    "2": [
+      "user_b"
+    ],
+    "3": [
+      "user_me"
+    ],
+    "5": [
+      "user_me"
+    ],
+    "6": [
+      "user_me"
+    ],
+    "7": [
+      "user_me"
+    ],
+    "8": [
+      "user_me"
+    ],
+    "9": [
+      "user_me"
+    ],
+    "10": [
+      "user_me"
+    ],
+    "11": [
+      "22"
+    ],
+    "12": [
+      "22"
+    ]
+  },
+  "event_pending": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": [],
+    "6": [],
+    "7": [],
+    "8": [],
+    "9": [],
+    "10": [],
+    "11": [],
+    "12": []
+  },
+  "users": {
+    "1": {
+      "password_hash": "d6b5915c46057bcb005f46f6433df65609dd3a7a57af75ac1a5a4a7c299ebffb",
+      "display_name": "11"
+    },
+    "22": {
+      "password_hash": "9ed2f0c33cb2f257e7801d91123baa31387f66c7cea04cd57cc57a7aa24c0aca",
+      "display_name": "2"
+    },
+    "33": {
+      "password_hash": "8a457ea7b865f14e451e4398b8563c2411d9793c6b6683221d999fb3a31cb41d",
+      "display_name": "3"
+    }
+  }
+}
