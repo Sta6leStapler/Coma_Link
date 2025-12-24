@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Coma-Link MyPage</title>
+  <style>
+    /* ——— テーマ＆全体変数 ——— */
+    :root {
+      --bg: #f5f5f5;      --fg: #333;
+      --panel: #fff;      --border: #ddd;
+      --primary: #2196f3; --danger: #f44336;
+      --overlay: rgba(0,0,0,0.3);
+    }
+    html[data-theme="dark"] {
+      --bg:#2b2b2b; --fg:#ddd; --panel:#3b3b3b; --border:#555;
+      --primary:#1976d2; --danger:#d32f2f; --overlay:rgba(0,0,0,0.5);
+    }
+    body {
+      margin:0; font-family:Arial,sans-serif;
+      background:var(--bg); color:var(--fg);
+    }
+    header {
+      background:var(--panel); padding:10px;
+      display:flex; justify-content:space-between;
+      border-bottom:1px solid var(--border);
+    }
+    header button, header select {
+      background:var(--panel); color:var(--fg);
+      border:1px solid var(--border); border-radius:4px;
+      padding:4px 8px; font-size:16px; cursor:pointer;
+    }
+    main {
+      padding:20px; max-width:400px; margin:20px auto;
+      background:var(--panel); border-radius:8px;
+      box-shadow:0 2px 6px var(--overlay);
+    }
+    h2 { margin-top:0; text-align:center; }
+    .form-group { margin-bottom:15px; }
+    .form-group input {
+      width:100%; padding:8px; font-size:14px;
+      border:1px solid var(--border); border-radius:4px;
+      background:var(--bg); color:var(--fg);
+    }
+    .form-group button {
+      width:100%; padding:10px; font-size:16px;
+      background:var(--primary); color:white;
+      border:none; border-radius:4px; cursor:pointer;
+      box-shadow:0 2px 4px var(--overlay);
+    }
+    .toggle-link {
+      text-align:center; margin-top:10px;
+    }
+    .toggle-link a {
+      color:var(--primary); cursor:pointer; text-decoration:none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button onclick="location.href='index.html'">← 戻る</button>
+    <select id="themeToggle">🌙</select>
+  </header>
+
+  <main>
+    <!-- ログインフォーム -->
+    <div id="login-form">
+      <h2>ログイン</h2>
+      <div class="form-group">
+        <input type="text" id="login-username" placeholder="ユーザー名">
+      </div>
+      <div class="form-group">
+        <input type="password" id="login-password" placeholder="パスワード">
+      </div>
+      <div class="form-group">
+        <button onclick="doLogin()">ログイン</button>
+      </div>
+      <p class="toggle-link">
+        アカウントがないですか？ <a onclick="showRegister()">新規登録</a>
+      </p>
+    </div>
+
+    <!-- 登録フォーム -->
+    <div id="register-form" style="display:none;">
+      <h2>新規登録</h2>
+      <div class="form-group">
+        <input type="text" id="reg-username" placeholder="ユーザー名">
+      </div>
+      <div class="form-group">
+        <input type="password" id="reg-password" placeholder="パスワード">
+      </div>
+      <div class="form-group">
+        <button onclick="doRegister()">登録</button>
+      </div>
+      <p class="toggle-link">
+        すでにアカウントをお持ちですか？ <a onclick="showLogin()">ログイン</a>
+      </p>
+    </div>  
+  </main>
+
+  <script>
+    // 接続先URLの設定
+    const API = 'https://coma-link.onrender.com';
+
+    // ——— テーマ切り替え ———
+    const themeToggle = document.getElementById('themeToggle');
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('coma_theme', theme);
+    }
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'light' ? 'dark' : 'light');
+    });
+    // 初期テーマ適用
+    applyTheme(localStorage.getItem('coma_theme') || 'light');
+
+    // ——— フォーム表示切り替え ———
+    function showRegister() {
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('register-form').style.display = 'block';
+    }
+    function showLogin() {
+      document.getElementById('register-form').style.display = 'none';
+      document.getElementById('login-form').style.display = 'block';
+    }
+
+    // ——— 新規登録処理 ———
+    async function doRegister() {
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      if (!username || !password) {
+        alert('ユーザー名とパスワードを入力してください');
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/register`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(()=>null);
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          alert('登録に成功しました');
+          showLogin();
+        } else {
+          alert('登録に失敗しました：' + (data.message || '不明なエラー'));
+        }
+      } catch (e) {
+        console.error(e);
+        alert('登録エラー: ' + (e.message || e));
+      }
+    }
+
+    // ——— ログイン処理 ———
+    async function doLogin() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      if (!username || !password) {
+        alert('ユーザー名とパスワードを入力してください');
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/login`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(()=>null);
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          alert('ログインに成功しました');
+          localStorage.setItem('coma_user', username);
+          location.href = 'mypage.html';
+        } else {
+          alert('ログインに失敗しました：' + (data.message || '不明なエラー'));
+        }
+      } catch (e) {
+        console.error(e);
+        alert('ログインエラー: ' + (e.message || e));
+      }
+    }
+  </script>
+</body>
+</html>

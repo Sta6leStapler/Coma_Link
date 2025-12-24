@@ -60,11 +60,11 @@
   </main>
 
   <script>
-    const API = 'https://coma-link-api.onrender.com';
+    const API = 'https://coma-link.onrender.com';
     const user = localStorage.getItem('coma_user');
     if (!user) {
       alert('ログインしてください');
-      location.href = 'login.html';
+      location.href = 'index.html';
     }
 
     const recruitmentList = document.getElementById('recruitment-list');

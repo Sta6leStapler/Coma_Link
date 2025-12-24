@@ -185,18 +185,18 @@
     const user = localStorage.getItem('coma_user');
     if (!user) {
       alert('ログインしてください');
-      location.href = 'login.html';
+      location.href = 'index.html';
     }
     document.getElementById('userName').textContent = user;
 
     // --- ログアウト処理 ---
     document.getElementById('logoutBtn').addEventListener('click', () => {
       localStorage.removeItem('coma_user');
-      location.href = 'login.html';
+      location.href = 'index.html';
     });
 
     // --- API ベース URL ---
-    const API = 'https://coma-link-api.onrender.com';
+    const API = 'https://coma-link.onrender.com';
 
     // --- 今日の曜日を日本語で取得 ---
     const jpWeek = ['日','月','火','水','木','金','土'];
