@@ -9,6 +9,9 @@ Coma‑Link backend
 import os, sqlite3, json, datetime as dt
 from flask import Flask, g, request, jsonify
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 CORS(app)               
@@ -40,13 +43,52 @@ CATEGORY_SETTINGS = {
 JP2ENG = {'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri'}
 ENG2JP = {v:k for k,v in JP2ENG.items()}
 
+# --- データベース接続ラッパー (SQLite/Postgres互換用) ---
+class DBWrapper:
+    """SQLiteとPostgreSQLの差異を吸収するラッパークラス"""
+    def __init__(self, conn, is_postgres=False):
+        self.conn = conn
+        self.is_postgres = is_postgres
+
+    def execute(self, query, params=()):
+        # PostgreSQLの場合、SQLiteのプレースホルダ '?' を '%s' に変換
+        if self.is_postgres:
+            query = query.replace('?', '%s')
+            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            cursor = self.conn.cursor()
+        
+        cursor.execute(query, params)
+        return cursor
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
+        
+    def cursor(self):
+        if self.is_postgres:
+            return self.conn.cursor(cursor_factory=RealDictCursor)
+        return self.conn.cursor()
+
 def get_db():
     db = getattr(g, "_db", None)
     if db is None:
-        db = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA journal_mode=WAL;")
-        db.execute("PRAGMA foreign_keys = ON;")
+        database_url = os.environ.get('DATABASE_URL')
+        
+        if database_url:
+            # クラウド環境 (PostgreSQL)
+            conn = psycopg2.connect(database_url)
+            db = DBWrapper(conn, is_postgres=True)
+        else:
+            # ローカル環境 (SQLite)
+            conn = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA foreign_keys = ON;")
+            db = DBWrapper(conn, is_postgres=False)
+            
         g._db = db
     return db
 
@@ -225,13 +267,16 @@ def register():
     if not username or not password:
         return jsonify(success=False, message="ユーザー名とパスワードは必須です"), 400
     
+    hashed_password = generate_password_hash(password)
+    
     try:
         db.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, password)
+            (username, hashed_password) # ← hashed_password に変更
         )
         db.commit()
         return jsonify(success=True)
+    
     except sqlite3.IntegrityError:
         return jsonify(success=False, message="そのユーザー名は既に使用されています"), 400
 
@@ -245,7 +290,7 @@ def login():
     cur = db.execute("SELECT password FROM users WHERE username = ?", (username,))
     user_row = cur.fetchone()
     
-    if user_row and user_row['password'] == password:
+    if user_row and check_password_hash(user_row['password'], password):
         return jsonify(success=True)
     else:
         return jsonify(success=False, message="ユーザー名またはパスワードが違います")

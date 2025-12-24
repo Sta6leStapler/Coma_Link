@@ -1,0 +1,1 @@
+web: gunicorn coma_link_db:app

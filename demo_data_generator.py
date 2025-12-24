@@ -1,19 +1,21 @@
 import sqlite3
 import random
 import json
+import os
 from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
 
 # --- 設定 ---
 DB_PATH = "coma_link.db"
+SYLLABUS_FILE = "syllabus_data.json" # スクレイピングしたファイル
 RANDOM_SEED = 12345
-NUM_USERS = 50           # 生成するユーザー数
-NUM_RECRUITMENTS = 300   # 生成する募集数
+NUM_USERS = 50           
+NUM_RECRUITMENTS = 300   
 # ------------
 
-# 乱数シード固定
 random.seed(RANDOM_SEED)
 
-# データセット定義
+# 固定データセット
 FACULTIES = ['工学部', '情報理工学部', '文学部', '法学部', '経済学部', '理学部', '農学部', '芸術学部']
 CIRCLES = ['テニス', 'サッカー', '軽音', 'プログラミング', '美術', '吹奏楽', 'ダンス', 'ボランティア', '茶道']
 CATEGORIES = ['食事', '勉強', 'スポーツ', '雑談', '趣味', 'その他']
@@ -27,7 +29,22 @@ TITLES_BY_CAT = {
     'その他': ['落とし物探して', 'ちょっと手伝って', '部室の掃除']
 }
 DAYS = ['月', '火', '水', '木', '金']
-COURSE_CONTENTS = ['Web工学', 'データベース', '人工知能', '線形代数', '心理学', '英語', '経済学入門', '物理学', '憲法', 'プログラミング基礎']
+
+def load_syllabus_data():
+    """シラバスJSONを読み込む。ファイルがない場合はダミーを返す"""
+    if not os.path.exists(SYLLABUS_FILE):
+        print(f"警告: {SYLLABUS_FILE} が見つかりません。スクレイピングを行ってください。")
+        print("簡易ダミーデータを使用します。")
+        dummy_courses = []
+        contents = ['Web工学', 'データベース', '人工知能', '線形代数', '心理学', '英語']
+        for c in contents:
+            for d in DAYS:
+                for s in range(1, 6):
+                    dummy_courses.append({"name": c, "day": d, "slot": s})
+        return dummy_courses
+
+    with open(SYLLABUS_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 def init_db_structure(db):
     """DB構造を初期化する"""
@@ -58,7 +75,7 @@ def init_db_structure(db):
         )
     ''')
 
-    # 募集テーブル (新構成)
+    # 募集テーブル
     cur.execute('''
         CREATE TABLE IF NOT EXISTS recruitments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,11 +108,15 @@ def init_db_structure(db):
 def create_demo_data():
     print(f"--- デモデータ生成開始 (Seed: {RANDOM_SEED}) ---")
     
+    # 1. 講義データのロード
+    all_syllabus_courses = load_syllabus_data()
+    print(f"使用する講義データプール: {len(all_syllabus_courses)} 件")
+
     try:
         db = sqlite3.connect(DB_PATH)
-        cur = db.cursor() # カーソルを作成
+        cur = db.cursor()
         
-        # 1. 既存データのクリア & テーブル作成
+        # 2. クリーンアップ
         db.execute("DROP TABLE IF EXISTS participants")
         db.execute("DROP TABLE IF EXISTS recruitments")
         db.execute("DROP TABLE IF EXISTS courses")
@@ -105,10 +126,16 @@ def create_demo_data():
         init_db_structure(db)
         print("テーブル初期化完了")
 
-        # 2. ユーザー生成
+        # 3. ユーザー生成
+        # 3. ユーザー生成
         print(f"ユーザー生成中 ({NUM_USERS}人)...")
         usernames = []
         users_data = []
+        
+        # 全員共通のハッシュ済みパスワードを計算しておく（高速化のため）
+        # デモユーザーのパスワードは全員 "password" とします
+        common_password_hash = generate_password_hash("password") # ← 追加
+
         for i in range(NUM_USERS):
             u = f"demo_user_{i+1}"
             usernames.append(u)
@@ -117,7 +144,9 @@ def create_demo_data():
             my_circles = random.sample(CIRCLES, random.randint(0, 3))
             
             users_data.append((
-                u, "password", grade, faculty, "デモ学科", json.dumps(my_circles)
+                u, 
+                common_password_hash, # ← "password" から変更
+                grade, faculty, "デモ学科", json.dumps(my_circles)
             ))
         
         cur.executemany(
@@ -125,32 +154,50 @@ def create_demo_data():
             users_data
         )
 
-        # 3. 授業(時間割)生成
-        print("時間割生成中...")
-        courses_data = []
+        # 4. 授業(時間割)生成 - 被りなしロジック適用
+        print("時間割生成中(リアルデータ使用)...")
+        courses_to_insert = []
+        
         for u in usernames:
-            num_courses = random.randint(8, 15)
-            slots = set()
-            while len(slots) < num_courses:
-                d = random.choice(DAYS)
-                s = random.randint(1, 8) 
-                slots.add((d, s))
+            # 1人あたり 8〜14コマ履修させる
+            target_course_count = random.randint(8, 14)
             
-            for d, s in slots:
-                content = random.choice(COURSE_CONTENTS)
-                courses_data.append((u, d, s, "00:00", "00:00", content))
+            # このユーザーが既に埋まっているコマ (day, slot) を記録するセット
+            occupied_slots = set()
+            user_courses = []
+            
+            # ランダムに講義を選びながら、空いているコマなら登録する
+            # 無限ループ防止のため、試行回数制限を設ける
+            attempts = 0
+            while len(user_courses) < target_course_count and attempts < 100:
+                candidate = random.choice(all_syllabus_courses)
+                day = candidate['day']
+                slot = candidate['slot']
+                
+                # 既にそのコマに授業があればスキップ
+                if (day, slot) in occupied_slots:
+                    attempts += 1
+                    continue
+                
+                # 登録
+                occupied_slots.add((day, slot))
+                user_courses.append((
+                    u, day, slot, "00:00", "00:00", candidate['name']
+                ))
+            
+            courses_to_insert.extend(user_courses)
         
         cur.executemany(
             "INSERT INTO courses (username, day, slot, start_time, end_time, content) VALUES (?,?,?,?,?,?)",
-            courses_data
+            courses_to_insert
         )
 
-        # 4. 募集生成 (修正箇所: 1件ずつINSERTしてIDを取得)
+        # 5. 募集生成 (前回と同じ)
         print(f"募集生成中 ({NUM_RECRUITMENTS}件)...")
         recruitment_ids = []
         today = datetime.now()
         
-        insert_sql = """
+        insert_rec_sql = """
             INSERT INTO recruitments 
             (creator_username, title, category, max_participants, location, date, day, start_slot, end_slot) 
             VALUES (?,?,?,?,?,?,?,?,?)
@@ -174,13 +221,12 @@ def create_demo_data():
             duration = random.choices([1, 2, 3], weights=[70, 20, 10])[0]
             end_slot = min(start_slot + duration - 1, 8)
             
-            # 実行 (RETURNINGを使わず、execute -> lastrowid で取得)
-            cur.execute(insert_sql, (
+            cur.execute(insert_rec_sql, (
                 creator, title, category, max_participants, location, date_str, day, start_slot, end_slot
             ))
             recruitment_ids.append(cur.lastrowid)
 
-        # 5. 参加申請生成
+        # 6. 参加申請生成 (前回と同じ)
         print("参加データ生成中...")
         participants_data = []
         for rec_id in recruitment_ids:
@@ -203,7 +249,7 @@ def create_demo_data():
     except Exception as e:
         print(f"エラーが発生しました: {e}")
         import traceback
-        traceback.print_exc() # 詳細なエラーを表示
+        traceback.print_exc()
     finally:
         db.close()
 

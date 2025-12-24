@@ -1,4 +1,5 @@
-# Python Virtual Environment
 venv/
-*.pyc
 __pycache__/
+*.pyc
+*.db
+syllabus_data.json
