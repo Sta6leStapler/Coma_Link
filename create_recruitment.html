@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>新規募集作成 | Coma-Link</title>
   <style>
-    /* login.htmlのスタイルを参考にしています */
+    /* index.htmlのスタイルを参考にしています */
     :root { --bg: #f5f5f5; --fg: #333; --panel: #fff; --border: #ddd; --primary: #2196f3; --overlay: rgba(0,0,0,0.3); }
     html[data-theme="dark"] { --bg:#2b2b2b; --fg:#ddd; --panel:#3b3b3b; --border:#555; --primary:#1976d2; --overlay:rgba(0,0,0,0.5); }
     body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--fg); }
@@ -78,11 +78,11 @@
   </main>
   
   <script>
-    const API = 'https://coma-link-api.onrender.com';
+    const API = 'https://coma-link.onrender.com';
     const user = localStorage.getItem('coma_user');
     if (!user) {
       alert('ログインしてください');
-      location.href = 'login.html';
+      location.href = 'index.html';
     }
 
     // (コマ選択を動的に生成)
