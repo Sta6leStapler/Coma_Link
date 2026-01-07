@@ -440,6 +440,13 @@ def get_heatmap():
     params = []
     join_clause = ""
     filters = []
+
+    # 日付範囲フィルタ
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    if start_date and end_date:
+        filters.append(" r.date BETWEEN ? AND ? ")
+        params.extend([start_date, end_date])
     
     if request.args.get('grade') or request.args.get('faculty') or request.args.get('circles'):
         join_clause = " JOIN users u ON r.creator_username = u.username "
@@ -515,7 +522,33 @@ def get_free_users():
     free_count = max(0, total_users - busy_users)
     
     return jsonify({"count": free_count})
-# ▲▲▲ 改修完了 ▲▲▲
+
+# 新規追加: マイページ用データ取得
+@app.route("/my_page_data", methods=["GET"])
+def get_my_page_data():
+    db = get_db()
+    username = request.args.get("username")
+    if not username: return jsonify({}), 400
+
+    # 1. 自分が作成した募集 (新しい順)
+    cur = db.execute('''
+        SELECT * FROM recruitments 
+        WHERE creator_username = ? 
+        ORDER BY date DESC, start_slot ASC
+    ''', (username,))
+    created = [dict(r) for r in cur.fetchall()]
+
+    # 2. 自分が参加申請した募集 (新しい順)
+    cur = db.execute('''
+        SELECT r.title, r.date, r.day, r.start_slot, r.end_slot, r.location, p.status, p.id as app_id
+        FROM participants p
+        JOIN recruitments r ON p.recruitment_id = r.id
+        WHERE p.applicant_username = ?
+        ORDER BY r.date DESC
+    ''', (username,))
+    joined = [dict(r) for r in cur.fetchall()]
+
+    return jsonify({"created": created, "joined": joined})
 
 if __name__ == "__main__":
     with app.app_context():

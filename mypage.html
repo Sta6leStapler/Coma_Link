@@ -5,107 +5,42 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>マイページ | Coma‑Link</title>
   <style>
-    :root {
-      --bg: #f9f9f9;
-      --fg: #333;
-      --panel: #fff;
-      --border: #ddd;
-      --highlight: #b2fab4;
-      --primary: #2196f3;
-    }
-    html[data-theme="dark"] {
-      --bg: #2b2b2b;
-      --fg: #ddd;
-      --panel: #3b3b3b;
-      --border: #555;
-      --highlight: #4caf50;
-      --primary: #1976d2;
-    }
+    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --shadow: rgba(0,0,0,0.1); }
+    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --shadow: rgba(0,0,0,0.3); }
     *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
-    body {
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; }
 
-    /* ——— ヘッダー ——— */
-    header {
-      background: var(--panel);
-      padding: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-    }
+    header { background: var(--panel); padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     header h1 { font-size: 1.2em; margin:0; }
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .header-controls button {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 18px;
-      color: var(--fg);
-    }
-    .header-controls button.logout {
-      font-size: 14px;
-      padding: 4px 8px;
-      background: var(--primary);
-      color: #fff;
-      border-radius: 4px;
-    }
+    .header-controls { display: flex; align-items: center; gap: 8px; }
+    .header-controls button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--fg); }
+    .header-controls button.logout { font-size: 14px; padding: 4px 8px; background: var(--primary); color: #fff; border-radius: 4px; }
 
-    /* ——— ナビ ——— */
-    .toolbar {
-      display: flex;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-    }
-    .toolbar button {
-      flex: 1;
-      padding: 8px;
-      background: var(--panel);
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .toolbar button.active {
-      background: var(--highlight);
-      color: #fff;
-    }
+    .toolbar { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .toolbar button { flex: 1; padding: 12px; background: var(--panel); border: none; cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; }
+    .toolbar button.active { border-bottom: 3px solid var(--primary); color: var(--primary); font-weight: bold; }
 
-    /* ——— コンテンツ ——— */
-    main {
-      flex: 1;
-      padding: 20px;
-    }
-    h2 {
-      margin-top: 20px;
-      margin-bottom: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--panel);
-    }
-    th, td {
-      border: 1px solid var(--border);
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background: #eee;
-    }
+    main { flex: 1; padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; }
+    h2 { margin-top: 30px; margin-bottom: 15px; border-left: 5px solid var(--primary); padding-left: 10px; font-size: 1.2em; }
+    
+    /* カードグリッドレイアウト */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+    
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px var(--shadow); }
+    .card h3 { font-size: 1.1em; margin-bottom: 8px; color: var(--primary); }
+    .card p { font-size: 0.9em; margin-bottom: 5px; color: var(--fg); }
+    .card .meta { font-size: 0.8em; color: #666; margin-top: 10px; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; color: white; }
+    .status-pending { background: #ffa726; }
+    .status-approved { background: #66bb6a; }
+    .status-rejected { background: #ef5350; }
+
+    table { width: 100%; border-collapse: collapse; background: var(--panel); margin-bottom: 10px; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+    th { background: rgba(0,0,0,0.05); }
   </style>
 </head>
 <body>
-  <!-- ヘッダー -->
   <header>
     <h1>Coma‑Link</h1>
     <div class="header-controls">
@@ -114,206 +49,137 @@
     </div>
   </header>
 
-  <!-- ナビゲーション -->
   <div class="toolbar">
     <button onclick="location.href='jikanwari.html'">時間割</button>
     <button onclick="location.href='board.html'">募集掲示板</button>
-    <button onclick="location.href='calendar.html'">カレンダー</button>
-    <button onclick="location.href='connect.html'">つながる</button>
-    <button onclick="location.href='chat.html'">チャット</button>
     <button class="active">マイページ</button>
   </div>
 
-  <!-- メインコンテンツ -->
   <main>
-    <h1>ようこそ、<span id="userName"></span> さん！</h1>
+    <div style="text-align:center; margin-bottom:20px;">
+      <h1>ようこそ、<span id="userName"></span> さん！</h1>
+    </div>
 
-    <!-- 今日の授業 -->
     <section>
-      <h2>今日の時間割（授業）</h2>
-      <table id="ttTable">
-        <thead>
-          <tr>
-            <th>曜日</th>
-            <th>限</th>
-            <th>授業名／教室</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- JavaScript で埋め込み -->
-        </tbody>
-      </table>
+      <h2>📝 作成した募集</h2>
+      <div id="createdList" class="grid">読み込み中...</div>
     </section>
 
-    <!-- 今日のコマ時間 -->
     <section>
-      <h2>今日のコマ時間</h2>
-      <table id="comaTable">
-        <thead>
-          <tr>
-            <th>曜日</th>
-            <th>開始</th>
-            <th>終了</th>
-            <th>内容</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- JavaScript で埋め込み -->
-        </tbody>
-      </table>
+      <h2>🙋 参加申請中の募集</h2>
+      <div id="joinedList" class="grid">読み込み中...</div>
     </section>
 
-    <!-- 届いた参加申請 -->
     <section>
-      <h2>届いた参加申請</h2>
+      <h2>📩 あなたの募集への応募</h2>
       <table id="applicationTable">
-        <thead>
-          <tr>
-            <th>募集タイトル</th>
-            <th>申請者</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          </tbody>
+        <thead><tr><th>募集タイトル</th><th>申請者</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>🏫 今日の授業</h2>
+      <table id="ttTable">
+        <thead><tr><th>限</th><th>授業名</th></tr></thead>
+        <tbody></tbody>
       </table>
     </section>
   </main>
 
   <script>
-    // --- ログインチェック & ユーザー名表示 ---
     const user = localStorage.getItem('coma_user');
-    if (!user) {
-      alert('ログインしてください');
-      location.href = 'index.html';
-    }
+    if (!user) { alert('ログインしてください'); location.href = 'index.html'; }
     document.getElementById('userName').textContent = user;
+    document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('coma_user'); location.href = 'index.html'; };
 
-    // --- ログアウト処理 ---
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('coma_user');
-      location.href = 'index.html';
-    });
-
-    // --- API ベース URL ---
     const API = 'https://coma-link.onrender.com';
 
-    // --- 今日の曜日を日本語で取得 ---
-    const jpWeek = ['日','月','火','水','木','金','土'];
-    const today = new Date();
-    const todayJP = jpWeek[today.getDay()];
+    // --- データ読み込み ---
+    async function loadAllData() {
+      // 1. My Page Data (Created & Joined)
+      const res1 = await fetch(`${API}/my_page_data?username=${encodeURIComponent(user)}`);
+      const data = await res1.json();
+      renderCreated(data.created || []);
+      renderJoined(data.joined || []);
 
-    // --- テーブル要素取得 ---
-    const ttBody = document.querySelector('#ttTable tbody');
-    const comaBody = document.querySelector('#comaTable tbody');
-    const appBody = document.querySelector('#applicationTable tbody');
+      // 2. Applications (Received)
+      const res2 = await fetch(`${API}/my_recruitments/applications?username=${encodeURIComponent(user)}`);
+      const apps = await res2.json();
+      renderApplications(apps);
 
-    // --- 今日の授業取得 & 描画 ---
-    async function loadCourses() {
-      const res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
-      const list = await res.json();
+      // 3. Today's Courses
+      const res3 = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
+      const courses = await res3.json();
+      renderTodayCourses(courses);
+    }
+
+    function renderCreated(list) {
+      const el = document.getElementById('createdList');
+      if(list.length === 0) { el.innerHTML = '<p>作成した募集はありません。</p>'; return; }
+      el.innerHTML = list.map(item => `
+        <div class="card">
+          <h3>${item.title}</h3>
+          <p>📅 ${item.date} (${item.day}) ${item.start_slot}-${item.end_slot}限</p>
+          <p>📍 ${item.location || '-'}</p>
+          <div class="meta">作成日: ${item.created_at.split('T')[0]}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderJoined(list) {
+      const el = document.getElementById('joinedList');
+      if(list.length === 0) { el.innerHTML = '<p>参加申請した募集はありません。</p>'; return; }
+      el.innerHTML = list.map(item => `
+        <div class="card">
+          <h3>${item.title}</h3>
+          <p>📅 ${item.date} (${item.day}) ${item.start_slot}-${item.end_slot}限</p>
+          <p>📍 ${item.location || '-'}</p>
+          <div style="margin-top:5px;">
+            <span class="status-badge status-${item.status}">
+              ${item.status === 'approved' ? '承認済' : item.status === 'rejected' ? '却下' : '申請中'}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderApplications(list) {
+      const tbody = document.querySelector('#applicationTable tbody');
+      if(list.length === 0) { tbody.innerHTML = '<tr><td colspan="3">新しい申請はありません</td></tr>'; return; }
+      tbody.innerHTML = list.map(app => `
+        <tr id="app-row-${app.id}">
+          <td>${app.title}</td>
+          <td>${app.applicant_username}</td>
+          <td>
+            <button onclick="handleApp(${app.id}, 'approved')">承認</button>
+            <button onclick="handleApp(${app.id}, 'rejected')">却下</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    async function handleApp(id, status) {
+      await fetch(`${API}/applications/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status}) });
+      document.getElementById(`app-row-${id}`).remove();
+    }
+
+    function renderTodayCourses(list) {
+      const jpWeek = ['日','月','火','水','木','金','土'];
+      const todayJP = jpWeek[new Date().getDay()];
       const todayList = list.filter(c => c.day === todayJP);
-      ttBody.innerHTML = '';
-      if (todayList.length) {
-        todayList.forEach(c => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${c.day}</td>
-            <td>${c.slot}限</td>
-            <td>${c.content || '-'}</td>
-          `;
-          ttBody.appendChild(tr);
-        });
-      } else {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="3">今日の授業は登録されていません</td>`;
-        ttBody.appendChild(tr);
-      }
+      const tbody = document.querySelector('#ttTable tbody');
+      if(todayList.length === 0) { tbody.innerHTML = '<tr><td colspan="2">今日の授業はありません</td></tr>'; return; }
+      tbody.innerHTML = todayList.map(c => `<tr><td>${c.slot}限</td><td>${c.content}</td></tr>`).join('');
     }
 
-    // --- 今日のコマ時間取得 & 描画 ---
-    async function loadComas() {
-      const res = await fetch(`${API}/custom_slots?username=${encodeURIComponent(user)}`);
-      const list = await res.json();
-      const todayList = list.filter(c => c.day === todayJP);
-      comaBody.innerHTML = '';
-      if (todayList.length) {
-        todayList.forEach(c => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${c.day}</td>
-            <td>${c.start_time}</td>
-            <td>${c.end_time}</td>
-            <td>${c.content || '-'}</td>
-          `;
-          comaBody.appendChild(tr);
-        });
-      } else {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="4">今日のコマ時間は登録されていません</td>`;
-        comaBody.appendChild(tr);
-      }
-    }
+    // テーマ設定
+    const tt=document.getElementById('themeToggle');
+    function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); tt.textContent=t==='dark'?'☀️':'🌙'; localStorage.setItem('coma_theme',t); }
+    tt.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'));
+    applyTheme(localStorage.getItem('coma_theme')||'light');
 
-    // --- 参加申請を読み込む関数 ---
-    async function loadApplications() {
-      const res = await fetch(`${API}/my_recruitments/applications?username=${encodeURIComponent(user)}`);
-      const list = await res.json();
-      appBody.innerHTML = ''; // クリア
-      if (list.length) {
-        list.forEach(app => {
-          const tr = document.createElement('tr');
-          tr.id = `app-row-${app.id}`; // 行を特定するためのID
-          tr.innerHTML = `
-            <td>${app.title}</td>
-            <td>${app.applicant_username}</td>
-            <td>
-              <button onclick="handleApplication(${app.id}, 'approved')">承認</button>
-              <button onclick="handleApplication(${app.id}, 'rejected')">拒否</button>
-            </td>
-          `;
-          appBody.appendChild(tr);
-        });
-      } else {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="3">新しい参加申請はありません</td>`;
-        appBody.appendChild(tr);
-      }
-    }
-
-    // --- 申請を承認/拒否する関数 ---
-    async function handleApplication(appId, status) {
-      const res = await fetch(`${API}/applications/${appId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert(`申請を${status === 'approved' ? '承認' : '拒否'}しました。`);
-        // 成功したら画面からその行を削除
-        document.getElementById(`app-row-${appId}`).remove();
-      } else {
-        alert('操作に失敗しました。');
-      }
-    }
-
-    // --- テーマ切替 ---
-    const tt = document.getElementById('themeToggle');
-    function applyTheme(t) {
-      document.documentElement.setAttribute('data-theme', t);
-      tt.textContent = t === 'light' ? '🌙' : '☀️';
-      localStorage.setItem('coma_theme', t);
-    }
-    tt.addEventListener('click', () => {
-      applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
-    });
-    applyTheme(localStorage.getItem('coma_theme') || 'light');
-
-    // --- 初期ロード ---
-    loadCourses();
-    loadComas();
-    loadApplications();
+    loadAllData();
   </script>
 </body>
 </html>
