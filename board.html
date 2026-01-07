@@ -68,7 +68,7 @@
     }
 
     const recruitmentList = document.getElementById('recruitment-list');
-    const filterCategory = document.getElementById('filterCategory');
+    // const filterCategory = document.getElementById('filterCategory');
     const filterLocation = document.getElementById('filterLocation');
 
     // URLからパラメータを取得
@@ -109,7 +109,7 @@
       
       // 3. 通常のフィルター
       } else {
-        if (filterCategory.value) params.append('category', filterCategory.value);
+        // if (filterCategory.value) params.append('category', filterCategory.value);
         if (filterLocation.value) params.append('location', filterLocation.value);
       }
       
