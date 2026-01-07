@@ -168,7 +168,7 @@
         
         if(!day || !slot) return;
 
-        const res = await fetch(`${API}/free_users?day=${day}&slot=${slot}`);
+        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${slot}&end_slot=${slot}`);
         const data = await res.json();
         display.textContent = `この時間の空きユーザー: 約 ${data.count} 人`;
     }

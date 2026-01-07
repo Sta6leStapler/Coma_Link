@@ -343,6 +343,13 @@ def get_recruitments():
     query = "SELECT * FROM recruitments WHERE 1=1"
     params = []
     
+    # 過去のイベントを除外 (デフォルト動作) 
+    # クエリパラメータ include_past=true があれば過去も表示
+    if request.args.get('include_past') != 'true':
+        today_str = dt.datetime.now().strftime("%Y-%m-%d")
+        query += " AND date >= ?"
+        params.append(today_str)
+
     multi_slots_query = []
     
     # 複数コマ検索 (例: '月-1,火-3')
