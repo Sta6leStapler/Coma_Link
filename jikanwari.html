@@ -62,10 +62,17 @@
     @media (max-width: 700px) { .modal-left { border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 20px; padding-right: 0; } .modal-right { padding-left: 0; } }
 
     /* 募集リスト */
-    .rec-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; }
+    .rec-item { 
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px;
+      display: flex; flex-direction: column; /* 縦並び */
+    }
     .rec-item h4 { margin: 0 0 5px 0; font-size: 14px; }
     .rec-meta { font-size: 11px; color: #666; margin-bottom: 5px; }
-    .apply-mini-btn { background: var(--primary); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
+    .apply-mini-btn { 
+      background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+      align-self: flex-end; /* 右寄せ */
+      margin-top: 5px;      /* 上に隙間 */
+    }
 
     /* フォーム */
     .form-group { margin-bottom: 10px; }
@@ -342,29 +349,56 @@
       // 位置合わせ
       const rect = e.target.getBoundingClientRect();
       popup.style.left = (rect.left + window.scrollX) + 'px';
-      popup.style.top = (rect.top + window.scrollY - 50) + 'px'; // 少し上に
+      popup.style.top = (rect.top + window.scrollY - 50) + 'px';
       popup.style.display = 'block';
+      
+      // アニメーションを一旦リセット
+      text.style.animation = 'none';
       text.textContent = "読み込み中...";
 
-      // データ取得
       const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
       const list = await res.json();
 
       if (list.length === 0) {
-        text.style.animation = 'none';
         text.textContent = "募集中 0件 (クリックで作成)";
       } else {
         const titles = list.map(r => `【${CATEGORY_ICONS[r.category]||'✨'}${r.title}】`).join("  ");
-        text.textContent = titles + "     " + titles; // ループ用に長めに
-        text.style.animation = 'ticker 10s linear infinite';
+        text.textContent = titles + "     " + titles; // ループ用に繰り返し
+        
+        // 文字数(幅)に応じて時間を計算 (速度を一定にする)
+        // 1文字あたり約0.2秒 + ベース2秒 くらいを目安に調整
+        const duration = (titles.length * 0.3) + 5;
+        text.style.animation = `ticker ${duration}s linear infinite`;
       }
 
-      // 5秒後に自動で閉じる
       if (tickerTimer) clearTimeout(tickerTimer);
       tickerTimer = setTimeout(() => { popup.style.display = 'none'; }, 5000);
       
-      // ポップアップ自体のクリックでもモーダルへ
       popup.onclick = () => openRecruitmentModal(day, slot);
+    }
+
+    // 空きユーザー数の計算処理
+    async function updateFreeUsers() {
+      // モーダルが開いていない、または曜日が未定の場合は何もしない
+      const day = currentSelected.day;
+      if(!day) return;
+
+      const s = document.getElementById('newStartSlot').value;
+      const e = document.getElementById('newEndSlot').value;
+      const display = document.getElementById('modalFreeUsers');
+      
+      display.textContent = "計算中...";
+      
+      try {
+        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${s}&end_slot=${e}`);
+        if (!res.ok) throw new Error("API Error");
+        
+        const data = await res.json();
+        display.textContent = `この期間の空きユーザー: 約 ${data.count} 人`;
+      } catch (err) {
+        console.error(err);
+        display.textContent = "空き状況の取得に失敗";
+      }
     }
 
     // --- 募集管理モーダル ---
