@@ -18,7 +18,7 @@ CORS(app)
 DB_PATH = os.path.join(app.root_path, "coma_link.db")
 
 ## ---------- 共通 ----------
-# 大学のコマ時間割 (7限まで)
+# 大学のコマ時間割 (8限まで)
 PERIOD_TIMES = {
     1: ('09:00', '10:30'),
     2: ('10:40', '12:10'),
@@ -171,14 +171,16 @@ def init_db():
     db.commit(); db.close()
 
 
-## ---------- 既定コマ API ----------
+## ---------- 既定コマ API (修正済み) ----------
 @app.route("/courses", methods=["GET","POST","DELETE"])
 def courses():
-    db = get_db(); cur = db.cursor()
+    db = get_db()
+    # cur = db.cursor() ← 削除: これを使うと変換が効かないため
 
     if request.method == "GET":
         u = request.args.get("username","").strip()
-        cur.execute("SELECT day,slot,content FROM courses WHERE username=?", (u,))
+        # 修正: db.execute を使用
+        cur = db.execute("SELECT day,slot,content FROM courses WHERE username=?", (u,))
         return jsonify([dict(r) for r in cur.fetchall()])
 
     data = request.get_json();  u = data.get("username","").strip()
@@ -189,7 +191,8 @@ def courses():
         content = data.get("content","")
 
         st, et = PERIOD_TIMES.get(slot, ("00:00", "00:00"))         
-        cur.execute('''
+        # 修正: db.execute を使用
+        db.execute('''
             INSERT INTO courses(username, day, slot, start_time, end_time, content)
             VALUES (?,?,?,?,?,?)
             ON CONFLICT(username, day, slot)
@@ -199,29 +202,38 @@ def courses():
         return jsonify(success=True)
 
     # DELETE
-    cur.execute("DELETE FROM courses WHERE username=? AND day=? AND slot=?",
+    # 修正: db.execute を使用
+    db.execute("DELETE FROM courses WHERE username=? AND day=? AND slot=?",
                 (u, data["day"], data["slot"]))
     db.commit()
     return jsonify(success=True)
 
-## ---------- カスタムコマ API ----------
+## ---------- カスタムコマ API (修正済み) ----------
 @app.route("/custom_slots", methods=["GET","POST","DELETE"])
 def custom_slots():
-    db = get_db(); cur = db.cursor()
+    db = get_db()
+    
     if request.method == "GET":
         u = request.args.get("username","").strip()
-        cur.execute("SELECT day,start_time,end_time,content FROM custom_slots WHERE username=?", (u,))
+        # 修正: db.execute を使用
+        cur = db.execute("SELECT day,start_time,end_time,content FROM custom_slots WHERE username=?", (u,))
         return jsonify([dict(r) for r in cur.fetchall()])
 
     data = request.get_json(); u = data.get("username","").strip()
     if request.method == "POST":
-        cur.execute('''INSERT OR REPLACE INTO custom_slots(username,day,start_time,end_time,content)
-                       VALUES(?,?,?,?,?)''',
-                    (u,data['day'],data['start_time'],data['end_time'],data.get('content','')))
+        # 修正: INSERT OR REPLACE (SQLite専用) -> INSERT ... ON CONFLICT (両対応)
+        # 修正: db.execute を使用
+        db.execute('''
+            INSERT INTO custom_slots(username, day, start_time, end_time, content)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(username, day, start_time)
+            DO UPDATE SET end_time=excluded.end_time, content=excluded.content
+        ''', (u,data['day'],data['start_time'],data['end_time'],data.get('content','')))
         db.commit(); return jsonify(success=True)
 
     # DELETE
-    cur.execute("DELETE FROM custom_slots WHERE username=? AND day=? AND start_time=?",
+    # 修正: db.execute を使用
+    db.execute("DELETE FROM custom_slots WHERE username=? AND day=? AND start_time=?",
                 (u,data['day'],data['start_time']))
     db.commit(); return jsonify(success=True)
 
@@ -272,7 +284,7 @@ def register():
     try:
         db.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, hashed_password) # ← hashed_password に変更
+            (username, hashed_password)
         )
         db.commit()
         return jsonify(success=True)
