@@ -82,7 +82,7 @@
 
     const recruitmentList = document.getElementById('recruitment-list');
     // const filterCategory = document.getElementById('filterCategory');
-    const filterLocation = document.getElementById('filterLocation');
+    // const filterLocation = document.getElementById('filterLocation');
 
     // URLからパラメータを取得
     const urlParams = new URLSearchParams(window.location.search);
@@ -114,58 +114,62 @@
       params.append('viewer', user); // 自分の状態を知るために必要
 
       if (currentCategory) params.append('category', currentCategory);
-      if (filterLocation.value) params.append('location', filterLocation.value);
       
-      // jikanwariからの遷移用
+      const locInput = document.getElementById('filterLocation');
+      if (locInput && locInput.value) params.append('location', locInput.value);
+      
       if (dayParam && slotParam) {
         params.append('day', dayParam);
         params.append('slot', slotParam);
       }
       
-      // 過去の募集を含めない (デフォルト)
-
-      const res = await fetch(`${API}/recruitments?${params.toString()}`);
-      const recruitments = await res.json();
-      
-      recruitmentList.innerHTML = '';
-      if (recruitments.length === 0) {
-        recruitmentList.innerHTML = '<p style="text-align:center; color:#888;">条件に一致する募集はありません。</p>';
-        return;
-      }
-
-      recruitments.forEach(rec => {
-        const isMine = (rec.creator_username === user);
-        const status = rec.my_status; // APIから返ってくる
+      try {
+        const res = await fetch(`${API}/recruitments?${params.toString()}`);
+        if(!res.ok) throw new Error(res.status);
+        const recruitments = await res.json();
         
-        const card = document.createElement('div');
-        card.className = 'card';
-        
-        // ボタンの出しわけ
-        let actionHtml = '';
-        if (isMine) {
-          actionHtml = `<span class="status-text" style="color:var(--primary);">あなたが作成した募集</span>`;
-        } else if (status) {
-          const label = status==='pending'?'申請中':(status==='approved'?'承認済':'却下');
-          actionHtml = `<button class="apply-btn" disabled>${label}</button>`;
-        } else {
-          actionHtml = `<button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>`;
+        recruitmentList.innerHTML = '';
+        if (recruitments.length === 0) {
+          recruitmentList.innerHTML = '<p style="text-align:center; color:#888;">条件に一致する募集はありません。</p>';
+          return;
         }
 
-        card.innerHTML = `
-          <h3>${rec.title}</h3>
-          <div class="card-meta">
-            <span class="tag">👤 ${rec.creator_username}</span>
-            <span class="tag">📁 ${rec.category || 'その他'}</span>
-            <span class="tag">📍 ${rec.location || '未定'}</span>
-            <span class="tag">⏰ ${rec.day}曜 ${rec.start_slot}〜${rec.end_slot}限</span>
-            <span class="tag">👥 定員 ${rec.max_participants}名</span>
-          </div>
-          <div class="action-area">
-            ${actionHtml}
-          </div>
-        `;
-        recruitmentList.appendChild(card);
-      });
+        recruitments.forEach(rec => {
+          const isMine = (rec.creator_username === user);
+          const status = rec.my_status;
+          
+          const card = document.createElement('div');
+          card.className = 'card';
+          
+          let actionHtml = '';
+          if (isMine) {
+            actionHtml = `<span class="status-text" style="color:var(--primary);">あなたが作成した募集</span>`;
+          } else if (status) {
+            const label = status==='pending'?'申請中':(status==='approved'?'承認済':'却下');
+            actionHtml = `<button class="apply-btn" disabled>${label}</button>`;
+          } else {
+            actionHtml = `<button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>`;
+          }
+
+          card.innerHTML = `
+            <h3>${rec.title}</h3>
+            <div class="card-meta">
+              <span class="tag">👤 ${rec.creator_username}</span>
+              <span class="tag">📁 ${rec.category || 'その他'}</span>
+              <span class="tag">📍 ${rec.location || '未定'}</span>
+              <span class="tag">⏰ ${rec.day}曜 ${rec.start_slot}〜${rec.end_slot}限</span>
+              <span class="tag">👥 定員 ${rec.max_participants}名</span>
+            </div>
+            <div class="action-area">
+              ${actionHtml}
+            </div>
+          `;
+          recruitmentList.appendChild(card);
+        });
+      } catch (e) {
+          console.error("募集読み込みエラー", e);
+          recruitmentList.innerHTML = '<p style="text-align:center; color:red;">読み込みに失敗しました。</p>';
+      }
     }
 
     // 参加申請を行う関数
@@ -196,12 +200,7 @@
     // 「検索」ボタンクリックで再読み込み
     const filterBtnEl = document.getElementById('filterBtn');
     if (filterBtnEl) filterBtnEl.addEventListener('click', loadRecruitments);
-    // filterLocation は存在が保証されない可能性があるため取得時にチェックする
-    const filterLocationEl = document.getElementById('filterLocation');
-    if (!filterLocationEl) {
-      console.warn('filterLocation 要素が見つかりません');
-    }
-
+    
     // テーマ切替のロジック (mypage.htmlからコピー)
     const tt = document.getElementById('themeToggle');
     function applyTheme(t) {
