@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>募集掲示板 | Coma‑Link</title>
   <style>
-    /* mypage.htmlと共通のデザイン定義 */
     :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --tag-bg: #e0e0e0; --shadow: rgba(0,0,0,0.1); }
     html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --tag-bg: #4f4f4f; --shadow: rgba(0,0,0,0.3); }
     
@@ -48,7 +47,6 @@
     .apply-btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
     .apply-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-    /* ページネーション */
     .pagination { display: flex; justify-content: center; gap: 20px; margin-top: 20px; align-items: center; }
     .page-btn { padding: 8px 16px; background: var(--panel); border: 1px solid var(--border); cursor: pointer; border-radius: 4px; }
     .page-btn:disabled { opacity: 0.5; cursor: default; }
@@ -104,12 +102,10 @@
     const CATEGORIES = ["食事", "勉強", "スポーツ", "雑談", "趣味", "その他"];
     let currentCategory = '';
     
-    // ページネーション用変数
     let allRecruitments = [];
     let currentPage = 1;
     const itemsPerPage = 10;
 
-    // カテゴリボタン生成
     const catContainer = document.getElementById('category-filters');
     CATEGORIES.forEach(cat => {
         const btn = document.createElement('button');
@@ -147,13 +143,20 @@
         if(!res.ok) throw new Error(res.status);
         
         allRecruitments = await res.json();
-        currentPage = 1; // 検索時は1ページ目に戻す
+        currentPage = 1; 
         renderRecruitments();
         
       } catch (e) {
           console.error("募集読み込みエラー", e);
           recruitmentList.innerHTML = '<p style="text-align:center; color:red;">読み込みに失敗しました。</p>';
       }
+    }
+
+    // ▼▼▼ コマ表示変換関数 ▼▼▼
+    function formatSlot(slot) {
+        if (slot === 3) return '昼休み';
+        if (slot < 3) return slot + '限';
+        return (slot - 1) + '限';
     }
 
     function renderRecruitments() {
@@ -166,7 +169,6 @@
         return;
       }
 
-      // ページ切り出し
       const startIndex = (currentPage - 1) * itemsPerPage;
       const endIndex = startIndex + itemsPerPage;
       const pageItems = allRecruitments.slice(startIndex, endIndex);
@@ -184,6 +186,9 @@
         if (isMine) actionHtml = `<span class="status-text" style="color:var(--primary);">あなたが作成</span>`;
         else if (status) actionHtml = `<button class="apply-btn" disabled>${status==='pending'?'申請中':(status==='approved'?'承認済':'却下')}</button>`;
         else actionHtml = `<button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>`;
+        
+        // ▼▼▼ コマ表示に変換関数を適用 ▼▼▼
+        const timeStr = `${rec.day}曜 ${formatSlot(rec.start_slot)}〜${formatSlot(rec.end_slot)}`;
 
         card.innerHTML = `
           <h3>${rec.title}</h3>
@@ -191,7 +196,7 @@
             <span class="tag">👤 ${rec.creator_username}</span>
             <span class="tag">📁 ${rec.category || 'その他'}</span>
             <span class="tag">📍 ${rec.location || '未定'}</span>
-            <span class="tag">⏰ ${rec.day}曜 ${rec.start_slot}〜${rec.end_slot}限</span>
+            <span class="tag">⏰ ${timeStr}</span>
             <span class="tag">👥 定員 ${rec.max_participants}名</span>
           </div>
           <div class="action-area">${actionHtml}</div>
@@ -199,7 +204,6 @@
         listDiv.appendChild(card);
       });
 
-      // ページネーション更新
       controls.style.display = 'flex';
       document.getElementById('pageIndicator').textContent = `${currentPage} / ${totalPages}`;
       document.getElementById('prevBtn').disabled = (currentPage === 1);
@@ -209,7 +213,7 @@
     function changePage(delta) {
         currentPage += delta;
         renderRecruitments();
-        window.scrollTo(0, 0); // 上に戻る
+        window.scrollTo(0, 0); 
     }
 
     async function applyToRecruitment(recId) {

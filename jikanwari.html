@@ -57,6 +57,7 @@
     .slot-cell.has-mine { border: 2px solid var(--primary) !important; background-color: rgba(33, 150, 243, 0.1); }
     .rec-item.mine { border-left: 5px solid var(--primary); background: var(--bg); }
     .rec-item.applied { border-left: 5px solid #ffa726; opacity: 0.8; }
+    .date-preview { font-size: 0.9em; color: var(--primary); text-align: right; margin-top: 5px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -112,16 +113,19 @@
             <div class="form-group" style="display:flex; gap:5px;">
               <div style="flex:1;">
                 <label>いつ</label>
-                <select id="newWeekOffset">
+                <select id="newWeekOffset" onchange="updateDatePreview()">
                   <option value="0">今週</option>
                   <option value="1">来週</option>
+                  <option value="2">再来週</option>
+                  <option value="3">3週間後</option>
                 </select>
               </div>
               <div style="flex:1;">
                 <label>曜日</label>
-                <select id="newDaySelect" onchange="updateFreeUsers()"></select>
+                <select id="newDaySelect" onchange="updateDatePreview(); updateFreeUsers();"></select>
               </div>
             </div>
+            <div id="datePreview" class="date-preview"></div>
 
             <div class="form-group" style="display:flex; gap:5px;">
               <div style="flex:1;"><label>開始コマ</label><select id="newStartSlot" onchange="updateFreeUsers()"></select></div>
@@ -169,11 +173,13 @@
     const dayNum = currentWeekStart.getDay() || 7; 
     currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
 
+    // カテゴリ追加
     const CATEGORY_SETTINGS = {
-        "食事": {icon: "🍱", title: "ランチに行きませんか？"},
-        "勉強": {icon: "📖", title: "課題一緒にやりましょう"},
+        "食事": {icon: "🍱", "title": "ランチに行きませんか？"},
+        "勉強": {icon: "📖", "title": "課題一緒にやりましょう"},
         "スポーツ": {icon: "⚽", title: "スポーツしましょう"},
         "雑談": {icon: "💬", title: "空きコマ雑談"},
+        "趣味": {icon: "🎮", title: "ゲームしませんか？"},
         "その他": {icon: "✨", title: ""}
     };
     const CATEGORY_ICONS = {}; 
@@ -269,7 +275,6 @@
           if (!res.ok) throw new Error(res.statusText);
           const data = await res.json();
 
-          // 修正点: 無条件にクリアしてアイコンの二重追加を防ぐ
           document.querySelectorAll('.slot-cell').forEach(c => { 
              c.innerHTML = '';
              c.style.backgroundColor = 'transparent';
@@ -319,7 +324,6 @@
 
     async function openRecruitmentModal(day, slot) {
       hideTicker();
-      // 修正点: 現在選択中の情報を更新
       currentSelected = { day, slot }; 
       
       const modal = document.getElementById('recruitmentModal');
@@ -353,6 +357,12 @@
 
     function closeRecModal() { document.getElementById('recruitmentModal').style.display = 'none'; loadHeatmap(); }
 
+    function getSlotLabel(i) {
+        if (i === 3) return '昼休み';
+        if (i < 3) return `${i}限`;
+        return `${i - 1}限`;
+    }
+
     function setupModalInputs() {
       const catSelect = document.getElementById('newCategorySelect');
       catSelect.innerHTML = '';
@@ -368,9 +378,14 @@
       const sSlot = document.getElementById('newStartSlot');
       const eSlot = document.getElementById('newEndSlot');
       sSlot.innerHTML = ''; eSlot.innerHTML = '';
-      for(let i=1; i<=8; i++){ sSlot.add(new Option(i+'限', i)); eSlot.add(new Option(i+'限', i)); }
       
-      // 曜日選択の生成
+      // コマ表示の修正
+      for(let i=1; i<=8; i++){ 
+          const label = getSlotLabel(i);
+          sSlot.add(new Option(label, i)); 
+          eSlot.add(new Option(label, i)); 
+      }
+      
       const daySel = document.getElementById('newDaySelect');
       daySel.innerHTML = '';
       days.forEach(d => daySel.add(new Option(d + '曜', d)));
@@ -379,8 +394,9 @@
     function setupCreateForm(day, slot) {
       document.getElementById('newStartSlot').value = slot;
       document.getElementById('newEndSlot').value = slot;
-      document.getElementById('newWeekOffset').value = "0"; // 今週
+      document.getElementById('newWeekOffset').value = "0"; 
       document.getElementById('newDaySelect').value = day;
+      updateDatePreview();
       updateFreeUsers();
     }
     
@@ -389,8 +405,21 @@
       document.getElementById('newCategoryInput').style.display = (val === 'その他') ? 'block' : 'none';
     }
 
+    function updateDatePreview() {
+        const weekOffset = parseInt(document.getElementById('newWeekOffset').value);
+        const day = document.getElementById('newDaySelect').value;
+        const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
+        
+        const targetDate = new Date(currentWeekStart);
+        targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[day]);
+        
+        const m = targetDate.getMonth() + 1;
+        const d = targetDate.getDate();
+        document.getElementById('datePreview').textContent = `予定日: ${m}月${d}日 (${day})`;
+        return targetDate.toISOString().split('T')[0];
+    }
+
     async function updateFreeUsers() {
-      // 修正: 選択ボックスから曜日を取得
       const day = document.getElementById('newDaySelect').value;
       if(!day) return;
       const s = document.getElementById('newStartSlot').value;
@@ -409,14 +438,8 @@
       let cat = document.getElementById('newCategorySelect').value;
       if(cat === 'その他') cat = document.getElementById('newCategoryInput').value;
       
-      // 日付計算
-      const weekOffset = parseInt(document.getElementById('newWeekOffset').value);
+      const dateStr = updateDatePreview();
       const selectedDay = document.getElementById('newDaySelect').value;
-      const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
-      
-      const targetDate = new Date(currentWeekStart);
-      targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[selectedDay]);
-      const dateStr = targetDate.toISOString().split('T')[0];
 
       const body = {
         creator_username: user, title: document.getElementById('newTitle').value,
