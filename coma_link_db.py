@@ -11,6 +11,7 @@ from flask import Flask, g, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
+from psycopg2 import IntegrityError
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
@@ -289,7 +290,7 @@ def register():
         db.commit()
         return jsonify(success=True)
     
-    except sqlite3.IntegrityError:
+    except (sqlite3.IntegrityError, IntegrityError):
         return jsonify(success=False, message="そのユーザー名は既に使用されています"), 400
 
 @app.route("/login", methods=["POST"])
