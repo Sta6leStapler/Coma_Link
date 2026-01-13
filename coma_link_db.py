@@ -7,14 +7,16 @@ Coma‑Link backend
 ・/match           フリーコマと重なる他ユーザーのコマを返す
 """
 import os, sqlite3, json, datetime as dt
-from flask import Flask, g, request, jsonify
+from flask import Flask, g, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2 import IntegrityError
 from psycopg2.extras import RealDictCursor
 
-app = Flask(__name__)
+# カレントディレクトリ(.)を静的フォルダとして設定
+app = Flask(__name__, static_folder='.', static_url_path='')
+
 CORS(app)               
 DB_PATH = os.path.join(app.root_path, "coma_link.db")
 
@@ -309,7 +311,9 @@ def login():
         return jsonify(success=False, message="ユーザー名またはパスワードが違います")
 
 @app.route("/")
-def home(): return "Coma‑Link backend running"
+def home():
+    # index.html (ログイン画面) を表示する
+    return app.send_static_file('index.html')
 
 ## ---------- 募集関連 API (Phase 2 改修) ----------
 
