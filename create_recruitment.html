@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>新規募集作成 | Coma-Link</title>
   <style>
-    /* index.htmlのスタイルを参考にしています */
     :root { --bg: #f5f5f5; --fg: #333; --panel: #fff; --border: #ddd; --primary: #2196f3; --overlay: rgba(0,0,0,0.3); }
     html[data-theme="dark"] { --bg:#2b2b2b; --fg:#ddd; --panel:#3b3b3b; --border:#555; --primary:#1976d2; --overlay:rgba(0,0,0,0.5); }
     body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--fg); }
@@ -14,10 +13,9 @@
     main { padding:20px; max-width:500px; margin:20px auto; background:var(--panel); border-radius:8px; box-shadow:0 2px 6px var(--overlay); }
     h2 { margin-top:0; text-align:center; }
     .form-group { margin-bottom:15px; }
-    .form-group label { display: block; margin-bottom: 5px; }
-    .form-group input { width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;}
+    .form-group label { display: block; margin-bottom: 5px; font-size: 14px; }
+    .form-group input, .form-group select { width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;}
     .form-group button { width:100%; padding:10px; font-size:16px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; }
-    .time-group { display: flex; gap: 10px; }
   </style>
 </head>
 <body>
@@ -28,47 +26,53 @@
   <main>
     <h2>新しい募集を作成</h2>
     
-    <div class="form-group" id="preset-buttons" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:20px;">
-      </div>
+    <div class="form-group" id="preset-buttons" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:20px;"></div>
 
     <div class="form-group">
-      <label for="title">タイトル *</label>
+      <label>タイトル *</label>
       <input type="text" id="title" placeholder="例：一緒にランチしませんか？">
     </div>
-    <!-- 追加：日付・場所・最大人数 -->
-    <div class="form-group">
-      <label for="date">日付 *</label>
-      <input type="date" id="date">
-    </div>
-    <div class="form-group">
-      <label for="location">場所</label>
-      <input type="text" id="location" placeholder="例: 学食">
-    </div>
-    <div class="form-group">
-      <label for="max_participants">最大参加人数</label>
-      <input type="number" id="max_participants" value="2" min="1" max="20">
-    </div>
-    <div class="form-group">
-      <label for="categorySelect">カテゴリ</label>
-      <select id="categorySelect" onchange="toggleCategoryInput()">
-        </select>
-      <input type="text" id="categoryInput" placeholder="カテゴリ名を入力" style="display:none; margin-top:5px;">
-    </div>
-    
-    <div class="form-group time-group">
+
+    <div class="form-group" style="display:flex; gap:10px;">
       <div style="flex:1;">
-        <label for="day">曜日 *</label>
-        <select id="day" onchange="updateFreeUsers()"></select>
+        <label>いつ</label>
+        <select id="weekOffset">
+          <option value="0">今週</option>
+          <option value="1">来週</option>
+        </select>
       </div>
       <div style="flex:1;">
-        <label for="start_slot">開始コマ *</label>
+        <label>曜日 *</label>
+        <select id="day" onchange="updateFreeUsers()"></select>
+      </div>
+    </div>
+
+    <div class="form-group" style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <label>開始コマ *</label>
         <select id="start_slot" onchange="updateFreeUsers()"></select>
       </div>
       <div style="flex:1;">
-        <label for="end_slot">終了コマ</label>
-        <select id="end_slot"></select>
+        <label>終了コマ</label>
+        <select id="end_slot" onchange="updateFreeUsers()"></select>
       </div>
     </div>
+    
+    <div class="form-group">
+      <label>カテゴリ</label>
+      <select id="categorySelect" onchange="toggleCategoryInput()"></select>
+      <input type="text" id="categoryInput" placeholder="カテゴリ名を入力" style="display:none; margin-top:5px;">
+    </div>
+    
+    <div class="form-group">
+      <label>場所</label>
+      <input type="text" id="location" placeholder="例: 学食">
+    </div>
+    <div class="form-group">
+      <label>最大参加人数</label>
+      <input type="number" id="max_participants" value="2" min="1" max="20">
+    </div>
+
     <div class="form-group" style="text-align:center; color:var(--primary); font-weight:bold;">
       <span id="freeUserDisplay">この時間の空きユーザー: 計算中...</span>
     </div>
@@ -80,36 +84,20 @@
   <script>
     const API = 'https://coma-link.onrender.com';
     const user = localStorage.getItem('coma_user');
-    if (!user) {
-      alert('ログインしてください');
-      location.href = 'index.html';
-    }
+    if (!user) { alert('ログインしてください'); location.href = 'index.html'; }
 
-    // (コマ選択を動的に生成)
     const daySelect = document.getElementById('day');
     const startSlotSelect = document.getElementById('start_slot');
     const endSlotSelect = document.getElementById('end_slot');
     
     const DAYS = ['月', '火', '水', '木', '金'];
-    DAYS.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d; opt.textContent = d + "曜日";
-        daySelect.appendChild(opt);
-    });
+    DAYS.forEach(d => { daySelect.add(new Option(d + '曜日', d)); });
 
-    // 1限から8限まで
     for (let i = 1; i <= 8; i++) {
-        const opt1 = document.createElement('option');
-        opt1.value = i; opt1.textContent = `${i}限`;
-        startSlotSelect.appendChild(opt1);
-        
-        // cloneNodeだとイベントが消えることがあるので作り直し
-        const opt2 = document.createElement('option');
-        opt2.value = i; opt2.textContent = `${i}限`;
-        endSlotSelect.appendChild(opt2);
+        startSlotSelect.add(new Option(`${i}限`, i));
+        endSlotSelect.add(new Option(`${i}限`, i));
     }
 
-    // 定数 (DBと合わせる)
     const CATEGORY_SETTINGS = {
         "食事": {"icon": "🍱", "title": "ランチに行きませんか？"},
         "勉強": {"icon": "📖", "title": "課題一緒にやりましょう"},
@@ -117,121 +105,91 @@
         "雑談": {"icon": "💬", "title": "空きコマ雑談"}
     };
 
-    // カテゴリドロップダウンの生成
     const catSelect = document.getElementById('categorySelect');
-    Object.keys(CATEGORY_SETTINGS).forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        catSelect.appendChild(opt);
-    });
+    Object.keys(CATEGORY_SETTINGS).forEach(cat => { catSelect.add(new Option(cat, cat)); });
 
     function toggleCategoryInput() {
         const val = document.getElementById('categorySelect').value;
         const input = document.getElementById('categoryInput');
         if (val === 'その他') {
-            input.style.display = 'block';
-            input.value = '';
-            input.focus();
+            input.style.display = 'block'; input.value = ''; input.focus();
         } else {
             input.style.display = 'none';
-            // タイトルの自動入力
-            const setting = CATEGORY_SETTINGS[val];
-            if (setting && setting.title) {
-                document.getElementById('title').value = setting.title;
-            }
+            if (CATEGORY_SETTINGS[val]?.title) document.getElementById('title').value = CATEGORY_SETTINGS[val].title;
         }
     }
-    // 初期化
     toggleCategoryInput();
 
-    // 1. プリセットボタン生成
     const presetContainer = document.getElementById('preset-buttons');
     Object.entries(CATEGORY_SETTINGS).forEach(([cat, data]) => {
         const btn = document.createElement('button');
         btn.textContent = `${data.icon} ${cat}`;
         btn.style.cssText = "padding:8px; background:var(--bg); border:1px solid var(--border); border-radius:15px; cursor:pointer;";
-        btn.onclick = () => {
-            // categorySelect に値を設定する（存在チェック）
-            const sel = document.getElementById('categorySelect');
-            if (sel) sel.value = cat;
-            document.getElementById('title').value = data.title;
-        };
+        btn.onclick = () => { document.getElementById('categorySelect').value = cat; toggleCategoryInput(); };
         presetContainer.appendChild(btn);
     });
 
-    // 2. 空きユーザー数取得
     async function updateFreeUsers() {
         const day = document.getElementById('day').value;
-        const startSlot = document.getElementById('start_slot').value;
-        
-        // 終了コマも取得してAPIに送る
-        const endSlot = document.getElementById('end_slot').value || startSlot; // 空なら開始と同じ
+        const slot = document.getElementById('start_slot').value;
+        const endSlot = document.getElementById('end_slot').value || slot;
         const display = document.getElementById('freeUserDisplay');
         
-        if(!day || !startSlot) return;
-
-        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${startSlot}&end_slot=${endSlot}`);
+        if(!day || !slot) return;
         
+        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${slot}&end_slot=${endSlot}`);
         const data = await res.json();
         display.textContent = `この時間の空きユーザー: 約 ${data.count} 人`;
     }
     
-    // 3. URLパラメータの受け取り (jikanwari.htmlからの遷移)
+    // 今日の週の月曜日を計算
+    let currentWeekStart = new Date();
+    const dayNum = currentWeekStart.getDay() || 7; 
+    currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
+
     window.onload = () => {
         const params = new URLSearchParams(window.location.search);
         if(params.get('day')) document.getElementById('day').value = params.get('day');
         if(params.get('start_slot')) {
             document.getElementById('start_slot').value = params.get('start_slot');
-            document.getElementById('end_slot').value = params.get('start_slot'); // 初期値は同じ
+            document.getElementById('end_slot').value = params.get('start_slot');
         }
         updateFreeUsers();
     };
 
     async function createRecruitment() {
       const title = document.getElementById('title').value.trim();
-      const date = document.getElementById('date').value;
+      const weekOffset = parseInt(document.getElementById('weekOffset').value);
       const day = document.getElementById('day').value;
-      // start_slot / end_slot を使用するように修正
       const start_slot = parseInt(document.getElementById('start_slot').value, 10);
       const end_slot = parseInt(document.getElementById('end_slot').value, 10);
 
-      if (!title || !date || !day || !slot) {
-        alert('必須項目（*）を入力してください。');
-        return;
-      }
+      if (!title || !day) { alert('必須項目（*）を入力してください。'); return; }
 
-      // カテゴリ取得ロジック
+      // 日付計算
+      const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
+      const targetDate = new Date(currentWeekStart);
+      targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[day]);
+      const dateStr = targetDate.toISOString().split('T')[0];
+
       let categoryVal = document.getElementById('categorySelect').value;
-      if (categoryVal === 'その他') {
-          categoryVal = document.getElementById('categoryInput').value.trim();
-      }
+      if (categoryVal === 'その他') categoryVal = document.getElementById('categoryInput').value.trim();
       
       const body = {
-        creator_username: user,
-        title: title,
-        category: categoryVal,
+        creator_username: user, title: title, category: categoryVal,
         location: document.getElementById('location').value.trim(),
         max_participants: parseInt(document.getElementById('max_participants').value, 10),
-        date: date,
-        day: day,
-        start_slot: start_slot,
-        end_slot: end_slot,
+        date: dateStr, day: day, start_slot: start_slot, end_slot: end_slot,
        };
 
       const res = await fetch(`${API}/recruitments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
       const data = await res.json();
-      if (data.success) {
-        alert('募集を作成しました！');
-        location.href = 'board.html';
-      } else {
-        alert('作成に失敗しました: ' + data.message);
-      }
+      if (data.success) { alert('募集を作成しました！'); location.href = 'board.html'; }
+      else { alert('作成に失敗しました: ' + data.message); }
     }
   </script>
 </body>
