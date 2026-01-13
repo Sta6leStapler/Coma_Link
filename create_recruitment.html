@@ -16,6 +16,7 @@
     .form-group label { display: block; margin-bottom: 5px; font-size: 14px; }
     .form-group input, .form-group select { width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;}
     .form-group button { width:100%; padding:10px; font-size:16px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; }
+    .date-preview { font-size: 0.9em; color: var(--primary); text-align: right; margin-top: 5px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -36,16 +37,19 @@
     <div class="form-group" style="display:flex; gap:10px;">
       <div style="flex:1;">
         <label>いつ</label>
-        <select id="weekOffset">
+        <select id="weekOffset" onchange="updateDatePreview()">
           <option value="0">今週</option>
           <option value="1">来週</option>
+          <option value="2">再来週</option>
+          <option value="3">3週間後</option>
         </select>
       </div>
       <div style="flex:1;">
         <label>曜日 *</label>
-        <select id="day" onchange="updateFreeUsers()"></select>
+        <select id="day" onchange="updateDatePreview(); updateFreeUsers();"></select>
       </div>
     </div>
+    <div id="datePreview" class="date-preview"></div>
 
     <div class="form-group" style="display:flex; gap:10px;">
       <div style="flex:1;">
@@ -86,23 +90,40 @@
     const user = localStorage.getItem('coma_user');
     if (!user) { alert('ログインしてください'); location.href = 'index.html'; }
 
+    // --- 日付計算用 ---
+    let currentWeekStart = new Date();
+    const dayNum = currentWeekStart.getDay() || 7; 
+    currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
+
     const daySelect = document.getElementById('day');
-    const startSlotSelect = document.getElementById('start_slot');
-    const endSlotSelect = document.getElementById('end_slot');
-    
     const DAYS = ['月', '火', '水', '木', '金'];
     DAYS.forEach(d => { daySelect.add(new Option(d + '曜日', d)); });
 
-    for (let i = 1; i <= 8; i++) {
-        startSlotSelect.add(new Option(`${i}限`, i));
-        endSlotSelect.add(new Option(`${i}限`, i));
+    // --- コマ定義の修正 (1-8限 → 昼休み・7限) ---
+    // 内部値(value)は変えず、表示名(text)だけ変える
+    const startSlotSelect = document.getElementById('start_slot');
+    const endSlotSelect = document.getElementById('end_slot');
+
+    function getSlotLabel(i) {
+        if (i === 3) return '昼休み';
+        if (i < 3) return `${i}限`;
+        return `${i - 1}限`; // 4->3限, 8->7限
     }
 
+    for (let i = 1; i <= 8; i++) {
+        const label = getSlotLabel(i);
+        startSlotSelect.add(new Option(label, i));
+        endSlotSelect.add(new Option(label, i));
+    }
+
+    // --- カテゴリ定義の修正 (趣味・その他追加) ---
     const CATEGORY_SETTINGS = {
         "食事": {"icon": "🍱", "title": "ランチに行きませんか？"},
         "勉強": {"icon": "📖", "title": "課題一緒にやりましょう"},
         "スポーツ": {"icon": "⚽", "title": "スポーツしましょう"},
-        "雑談": {"icon": "💬", "title": "空きコマ雑談"}
+        "雑談": {"icon": "💬", "title": "空きコマ雑談"},
+        "趣味": {"icon": "🎮", "title": "ゲームしませんか？"},
+        "その他": {"icon": "✨", "title": ""}
     };
 
     const catSelect = document.getElementById('categorySelect');
@@ -129,6 +150,21 @@
         presetContainer.appendChild(btn);
     });
 
+    // --- 日付プレビュー更新 ---
+    function updateDatePreview() {
+        const weekOffset = parseInt(document.getElementById('weekOffset').value);
+        const day = document.getElementById('day').value;
+        const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
+        
+        const targetDate = new Date(currentWeekStart);
+        targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[day]);
+        
+        const m = targetDate.getMonth() + 1;
+        const d = targetDate.getDate();
+        document.getElementById('datePreview').textContent = `予定日: ${m}月${d}日 (${day})`;
+        return targetDate.toISOString().split('T')[0];
+    }
+
     async function updateFreeUsers() {
         const day = document.getElementById('day').value;
         const slot = document.getElementById('start_slot').value;
@@ -137,16 +173,18 @@
         
         if(!day || !slot) return;
         
-        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${slot}&end_slot=${endSlot}`);
-        const data = await res.json();
-        display.textContent = `この時間の空きユーザー: 約 ${data.count} 人`;
+        display.textContent = "計算中...";
+        try {
+            const res = await fetch(`${API}/free_users?day=${day}&start_slot=${slot}&end_slot=${endSlot}`);
+            if (!res.ok) throw new Error("Server Error");
+            const data = await res.json();
+            display.textContent = `この期間の空きユーザー: 約 ${data.count} 人`;
+        } catch(e) {
+            console.error(e);
+            display.textContent = "取得失敗";
+        }
     }
     
-    // 今日の週の月曜日を計算
-    let currentWeekStart = new Date();
-    const dayNum = currentWeekStart.getDay() || 7; 
-    currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
-
     window.onload = () => {
         const params = new URLSearchParams(window.location.search);
         if(params.get('day')) document.getElementById('day').value = params.get('day');
@@ -154,23 +192,19 @@
             document.getElementById('start_slot').value = params.get('start_slot');
             document.getElementById('end_slot').value = params.get('start_slot');
         }
+        updateDatePreview();
         updateFreeUsers();
     };
 
     async function createRecruitment() {
       const title = document.getElementById('title').value.trim();
-      const weekOffset = parseInt(document.getElementById('weekOffset').value);
       const day = document.getElementById('day').value;
       const start_slot = parseInt(document.getElementById('start_slot').value, 10);
       const end_slot = parseInt(document.getElementById('end_slot').value, 10);
 
       if (!title || !day) { alert('必須項目（*）を入力してください。'); return; }
 
-      // 日付計算
-      const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
-      const targetDate = new Date(currentWeekStart);
-      targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[day]);
-      const dateStr = targetDate.toISOString().split('T')[0];
+      const dateStr = updateDatePreview(); // 計算済み日付を取得
 
       let categoryVal = document.getElementById('categorySelect').value;
       if (categoryVal === 'その他') categoryVal = document.getElementById('categoryInput').value.trim();
