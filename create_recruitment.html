@@ -163,12 +163,16 @@
     // 2. 空きユーザー数取得
     async function updateFreeUsers() {
         const day = document.getElementById('day').value;
-        const slot = document.getElementById('start_slot').value;
+        const startSlot = document.getElementById('start_slot').value;
+        
+        // 終了コマも取得してAPIに送る
+        const endSlot = document.getElementById('end_slot').value || startSlot; // 空なら開始と同じ
         const display = document.getElementById('freeUserDisplay');
         
-        if(!day || !slot) return;
+        if(!day || !startSlot) return;
 
-        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${slot}&end_slot=${slot}`);
+        const res = await fetch(`${API}/free_users?day=${day}&start_slot=${startSlot}&end_slot=${endSlot}`);
+        
         const data = await res.json();
         display.textContent = `この時間の空きユーザー: 約 ${data.count} 人`;
     }

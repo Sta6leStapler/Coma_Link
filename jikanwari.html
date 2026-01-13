@@ -366,6 +366,9 @@
 
     async function openRecruitmentModal(day, slot) {
       hideTicker();
+
+      currentSelected = { day, slot };
+
       const modal = document.getElementById('recruitmentModal');
       document.getElementById('recModalTitle').textContent = `${day}曜 ${slot}限 の募集`;
       const listDiv = document.getElementById('modalRecList');
