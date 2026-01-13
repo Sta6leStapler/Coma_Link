@@ -17,6 +17,8 @@
     .form-group input, .form-group select { width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); box-sizing: border-box;}
     .form-group button { width:100%; padding:10px; font-size:16px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; }
     .date-preview { font-size: 0.9em; color: var(--primary); text-align: right; margin-top: 5px; font-weight: bold; }
+    .preset-btn { font-size: 0.9em; padding: 6px 10px; border: 1px solid var(--border); background: var(--bg); border-radius: 15px; cursor: pointer; color: var(--fg); transition: 0.2s; }
+    .preset-btn:hover { background: var(--border); }
   </style>
 </head>
 <body>
@@ -90,24 +92,19 @@
     const user = localStorage.getItem('coma_user');
     if (!user) { alert('ログインしてください'); location.href = 'index.html'; }
 
-    // --- 日付計算用 ---
-    let currentWeekStart = new Date();
-    const dayNum = currentWeekStart.getDay() || 7; 
-    currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
-
+    // --- 曜日初期化 ---
     const daySelect = document.getElementById('day');
     const DAYS = ['月', '火', '水', '木', '金'];
     DAYS.forEach(d => { daySelect.add(new Option(d + '曜日', d)); });
 
-    // --- コマ定義の修正 (1-8限 → 昼休み・7限) ---
-    // 内部値(value)は変えず、表示名(text)だけ変える
+    // --- コマ初期化 (昼休み対応) ---
     const startSlotSelect = document.getElementById('start_slot');
     const endSlotSelect = document.getElementById('end_slot');
 
     function getSlotLabel(i) {
         if (i === 3) return '昼休み';
         if (i < 3) return `${i}限`;
-        return `${i - 1}限`; // 4->3限, 8->7限
+        return `${i - 1}限`;
     }
 
     for (let i = 1; i <= 8; i++) {
@@ -116,7 +113,7 @@
         endSlotSelect.add(new Option(label, i));
     }
 
-    // --- カテゴリ定義の修正 (趣味・その他追加) ---
+    // --- カテゴリ初期化 (趣味・その他対応) ---
     const CATEGORY_SETTINGS = {
         "食事": {"icon": "🍱", "title": "ランチに行きませんか？"},
         "勉強": {"icon": "📖", "title": "課題一緒にやりましょう"},
@@ -141,16 +138,21 @@
     }
     toggleCategoryInput();
 
+    // プリセットボタン生成
     const presetContainer = document.getElementById('preset-buttons');
     Object.entries(CATEGORY_SETTINGS).forEach(([cat, data]) => {
         const btn = document.createElement('button');
+        btn.className = 'preset-btn';
         btn.textContent = `${data.icon} ${cat}`;
-        btn.style.cssText = "padding:8px; background:var(--bg); border:1px solid var(--border); border-radius:15px; cursor:pointer;";
         btn.onclick = () => { document.getElementById('categorySelect').value = cat; toggleCategoryInput(); };
         presetContainer.appendChild(btn);
     });
 
-    // --- 日付プレビュー更新 ---
+    // --- 日付計算 ---
+    let currentWeekStart = new Date();
+    const dayNum = currentWeekStart.getDay() || 7; 
+    currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
+
     function updateDatePreview() {
         const weekOffset = parseInt(document.getElementById('weekOffset').value);
         const day = document.getElementById('day').value;
@@ -165,6 +167,7 @@
         return targetDate.toISOString().split('T')[0];
     }
 
+    // --- 空きユーザー計算 ---
     async function updateFreeUsers() {
         const day = document.getElementById('day').value;
         const slot = document.getElementById('start_slot').value;
@@ -185,6 +188,7 @@
         }
     }
     
+    // --- 初期化 ---
     window.onload = () => {
         const params = new URLSearchParams(window.location.search);
         if(params.get('day')) document.getElementById('day').value = params.get('day');
@@ -196,6 +200,7 @@
         updateFreeUsers();
     };
 
+    // --- 募集作成送信 ---
     async function createRecruitment() {
       const title = document.getElementById('title').value.trim();
       const day = document.getElementById('day').value;
@@ -204,7 +209,7 @@
 
       if (!title || !day) { alert('必須項目（*）を入力してください。'); return; }
 
-      const dateStr = updateDatePreview(); // 計算済み日付を取得
+      const dateStr = updateDatePreview();
 
       let categoryVal = document.getElementById('categorySelect').value;
       if (categoryVal === 'その他') categoryVal = document.getElementById('categoryInput').value.trim();

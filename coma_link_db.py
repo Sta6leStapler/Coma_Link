@@ -517,7 +517,6 @@ def get_free_users():
     db = get_db()
     day = request.args.get('day')
     
-    # start_slot / end_slot を取得 (指定がない場合は1コマ分とする)
     try:
         start_slot = int(request.args.get('start_slot', 0))
         end_slot = int(request.args.get('end_slot', start_slot))
@@ -528,21 +527,23 @@ def get_free_users():
         return jsonify({"count": 0})
 
     # 1. 全ユーザー数を取得
-    cur = db.execute("SELECT COUNT(*) FROM users")
-    total_users = cur.fetchone()[0]
+    # COUNT(*) に AS cnt をつけ、辞書型アクセスに対応させる
+    cur = db.execute("SELECT COUNT(*) AS cnt FROM users")
+    row = cur.fetchone()
+    # Rowオブジェクト(SQLite)やRealDictRow(Postgres)は辞書アクセスが可能
+    total_users = row['cnt']
 
-    # 2. 指定された期間(start_slot 〜 end_slot)のいずれかに
-    #    授業(courses)が入っているユーザーの数を取得
-    #    (重複排除のため DISTINCT username)
+    # 2. 指定された期間に授業があるユーザー数を取得
+    # こちらも AS cnt をつける
     cur = db.execute("""
-        SELECT COUNT(DISTINCT username) 
+        SELECT COUNT(DISTINCT username) AS cnt
         FROM courses 
         WHERE day = ? AND slot BETWEEN ? AND ?
     """, (day, start_slot, end_slot))
     
-    busy_users = cur.fetchone()[0]
+    row = cur.fetchone()
+    busy_users = row['cnt']
 
-    # 3. 差分が「この期間ずっと空いているユーザー数」
     free_count = max(0, total_users - busy_users)
     
     return jsonify({"count": free_count})
