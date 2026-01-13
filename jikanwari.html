@@ -12,23 +12,18 @@
     header h1 { font-size: 1.2em; }
     header button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--fg); }
     
-    /* タブの修正 */
     .toolbar { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
     .toolbar button { flex: 1; padding: 12px; background: var(--panel); border: none; cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; }
     .toolbar button.active { border-bottom: 3px solid var(--primary); color: var(--primary); font-weight: bold; }
     
     main { padding: 20px; }
-
-    /* 週移動コントロール */
     .week-control { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 15px; }
     .week-control button { padding: 8px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; }
     .week-control h2 { margin: 0; font-size: 1.2em; }
 
-    /* フィルタ・共通スタイル */
     .filter-section { background: var(--panel); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .filter-section select, .filter-section input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg); color: var(--fg); }
     
-    /* 時間割テーブル */
     .timetable { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .timetable th, .timetable td { border: 1px solid var(--border); height: 80px; text-align: center; vertical-align: middle; padding: 2px; position: relative; overflow: hidden; }
     .timetable th { background: var(--panel); font-size: 12px; }
@@ -38,46 +33,29 @@
     .slot-cell { cursor: pointer; transition: background-color 0.2s; }
     .timetable .slot-cell:hover { background-color: var(--highlight) !important; }
     
-    /* アイコン */
     .heatmap-content { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 2px; width: 100%; height: 100%; pointer-events: none; }
     .heatmap-icon { font-size: 14px; background: var(--panel); border-radius: 50%; width: 20px; height: 20px; line-height: 20px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
-    /* ポップアップ & モーダル (既存のまま) */
-    #tickerPopup { display: none; position: absolute; z-index: 200; width: 200px; padding: 8px; background: var(--panel); border: 2px solid var(--primary); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 12px; white-space: nowrap; overflow: hidden; cursor: pointer; }
+    #tickerPopup { display: none; position: absolute; z-index: 200; width: 200px; padding: 8px; background: var(--panel); border: 2px solid var(--primary); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 12px; white-space: nowrap; overflow: hidden; cursor: pointer; pointer-events: none; }
     .ticker-content { display: inline-block; padding-left: 100%; animation: ticker 8s linear infinite; }
     @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+    
     .modal-overlay { display: none; position: fixed; z-index: 300; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow: auto; }
     .modal-container { background-color: var(--panel); margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 800px; border: 1px solid var(--border); }
     .modal-split { display: flex; gap: 20px; flex-wrap: wrap; }
     .modal-left { flex: 1; min-width: 300px; border-right: 1px solid var(--border); padding-right: 20px; }
     .modal-right { flex: 1; min-width: 300px; padding-left: 10px; }
     @media (max-width: 700px) { .modal-left { border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 20px; padding-right: 0; } .modal-right { padding-left: 0; } }
+    
     .rec-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; }
-    .rec-item h4 { margin: 0 0 5px 0; font-size: 14px; }
-    .rec-meta { font-size: 11px; color: #666; margin-bottom: 5px; }
+    .rec-item h4 { margin: 0 0 5px 0; font-size: 14px; color: var(--fg); }
+    .rec-meta { font-size: 11px; color: var(--fg); opacity: 0.8; margin-bottom: 5px; }
     .apply-mini-btn { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; align-self: flex-end; margin-top: 5px; }
     .form-group { margin-bottom: 10px; } .form-group label { display: block; font-size: 12px; margin-bottom: 2px; } .form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
     .preset-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-right: 4px; margin-bottom: 4px; }
     #editModeBtn.active { background-color: var(--primary) !important; color: white; font-weight: bold; }
-
-    /* 自分の募集があるコマの強調 */
-    .slot-cell.has-mine {
-      border: 2px solid var(--primary) !important;
-      background-color: rgba(33, 150, 243, 0.1);
-    }
-    
-    /* ポップアップのチラつき防止 */
-    #tickerPopup {
-      pointer-events: none; /* マウスイベントを無視して下のセルに渡す */
-    }
-
-    /* ナイトモード文字色修正 */
-    .rec-item h4 { color: var(--fg); }
-    .rec-meta { color: var(--fg); opacity: 0.8; }
-    
-    /* 募集アイテム: 自分の募集 */
+    .slot-cell.has-mine { border: 2px solid var(--primary) !important; background-color: rgba(33, 150, 243, 0.1); }
     .rec-item.mine { border-left: 5px solid var(--primary); background: var(--bg); }
-    /* 募集アイテム: 申請済み */
     .rec-item.applied { border-left: 5px solid #ffa726; opacity: 0.8; }
   </style>
 </head>
@@ -86,7 +64,6 @@
     <h1>Coma‑Link</h1>
     <button id="themeToggle">🌙</button>
   </header>
-
   <div class="toolbar">
     <button onclick="location.href='jikanwari.html'" class="active">時間割</button>
     <button onclick="location.href='board.html'">募集掲示板</button>
@@ -98,7 +75,6 @@
       <h2 id="currentWeekLabel">...</h2>
       <button onclick="changeWeek(1)">次の週 ＞</button>
     </div>
-
     <div class="filter-section">
       <span>絞り込み:</span>
       <select id="filterGrade"><option value="">学年 (すべて)</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option><option value="4">4年</option></select>
@@ -108,12 +84,10 @@
       <button id="filterResetBtn">リセット</button>
       <button id="editModeBtn" style="margin-left: auto; background-color: var(--border);">講義を登録</button>
     </div>
-
     <table class="timetable" id="heatmapTable">
       <thead><tr><th></th></tr></thead>
       <tbody></tbody>
     </table>
-
     <div id="tickerPopup">
       <span id="tickerText" class="ticker-content">読み込み中...</span>
       <div style="font-size:10px; text-align:center; color:var(--primary); margin-top:4px;">(クリックで詳細・作成)</div>
@@ -134,13 +108,29 @@
             <h3>➕ 新しく募集する</h3>
             <div id="presetButtons" style="margin-bottom:10px;"></div>
             <div class="form-group"><label>タイトル</label><input type="text" id="newTitle" placeholder="例: ランチ行きませんか？"></div>
+            
             <div class="form-group" style="display:flex; gap:5px;">
-              <div style="flex:1;"><label>カテゴリ</label><select id="newCategorySelect" onchange="toggleCategoryInput()"></select><input type="text" id="newCategoryInput" style="display:none; margin-top:2px;" placeholder="カテゴリ名"></div>
-              <div style="width:80px;"><label>人数</label><input type="number" id="newMax" value="2" min="2"></div>
+              <div style="flex:1;">
+                <label>いつ</label>
+                <select id="newWeekOffset">
+                  <option value="0">今週</option>
+                  <option value="1">来週</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label>曜日</label>
+                <select id="newDaySelect" onchange="updateFreeUsers()"></select>
+              </div>
             </div>
+
             <div class="form-group" style="display:flex; gap:5px;">
               <div style="flex:1;"><label>開始コマ</label><select id="newStartSlot" onchange="updateFreeUsers()"></select></div>
               <div style="flex:1;"><label>終了コマ</label><select id="newEndSlot" onchange="updateFreeUsers()"></select></div>
+            </div>
+            
+            <div class="form-group" style="display:flex; gap:5px;">
+              <div style="flex:1;"><label>カテゴリ</label><select id="newCategorySelect" onchange="toggleCategoryInput()"></select><input type="text" id="newCategoryInput" style="display:none; margin-top:2px;" placeholder="カテゴリ名"></div>
+              <div style="width:80px;"><label>人数</label><input type="number" id="newMax" value="2" min="2"></div>
             </div>
             <div class="form-group"><label>場所</label><input type="text" id="newLocation" placeholder="場所"></div>
             <div style="text-align:center; margin:15px 0; font-weight:bold; color:var(--primary);"><span id="modalFreeUsers">空きユーザー: 計算中...</span></div>
@@ -175,13 +165,9 @@
     let isEditMode = false;
     let currentSelected = { day: '', slot: 0 };
     let tickerTimer = null;
-    
-    // ▼▼▼ 追加: カレンダー制御用変数 ▼▼▼
-    let currentWeekStart = new Date(); // 今日の日付
-    // 月曜日に補正する
-    const dayNum = currentWeekStart.getDay() || 7; // 日=7
+    let currentWeekStart = new Date();
+    const dayNum = currentWeekStart.getDay() || 7; 
     currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
-    // ▲▲▲ 追加 ▲▲▲
 
     const CATEGORY_SETTINGS = {
         "食事": {icon: "🍱", title: "ランチに行きませんか？"},
@@ -194,10 +180,10 @@
     Object.keys(CATEGORY_SETTINGS).forEach(k => CATEGORY_ICONS[k] = CATEGORY_SETTINGS[k].icon);
 
     async function initializeTimetable() {
-      setupModalInputs(); // 先にメニューを作ってしまう
+      setupModalInputs(); 
       await loadCourses();
       renderTable();
-      await loadHeatmap(); // ここでエラーが出てもメニューは表示される
+      await loadHeatmap();
     }
 
     async function loadCourses() {
@@ -209,7 +195,6 @@
       } catch(e) { console.error("講義取得エラー", e); }
     }
 
-    // ▼▼▼ 週移動関数 ▼▼▼
     function changeWeek(offset) {
       currentWeekStart.setDate(currentWeekStart.getDate() + (offset * 7));
       renderTable();
@@ -217,9 +202,8 @@
     }
 
     function renderTable() {
-      // 週ラベル更新
       const endOfWeek = new Date(currentWeekStart);
-      endOfWeek.setDate(currentWeekStart.getDate() + 4); // 金曜まで
+      endOfWeek.setDate(currentWeekStart.getDate() + 4); 
       document.getElementById('currentWeekLabel').textContent = 
         `${currentWeekStart.getMonth()+1}/${currentWeekStart.getDate()} - ${endOfWeek.getMonth()+1}/${endOfWeek.getDate()} の週`;
 
@@ -231,7 +215,6 @@
       const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
       days.forEach(day => {
         const th = document.createElement('th');
-        // 日付計算
         const d = new Date(currentWeekStart);
         d.setDate(currentWeekStart.getDate() + dayMap[day]);
         th.innerHTML = `${day}<br><small>${d.getMonth()+1}/${d.getDate()}</small>`;
@@ -255,22 +238,10 @@
           if (myCourses[key]) {
             td.className = 'course-cell';
             td.innerHTML = `<span>${myCourses[key]}</span>`;
-            // 授業があってもクリックで編集
-            td.onclick = () => {
-                if (isEditMode) openCourseModal(day, p, myCourses[key]);
-                // 講義があるときは募集詳細を開かない仕様なら何もしない、あるいは開くならここに追加
-            };
+            td.onclick = () => { if (isEditMode) openCourseModal(day, p, myCourses[key]); };
           } else {
             td.className = 'slot-cell';
-            // 空きセルをクリックした時の挙動 (モード判定)
-            td.onclick = () => {
-                if (isEditMode) {
-                    openCourseModal(day, p, ""); // 登録モードなら講義登録
-                } else {
-                    openRecruitmentModal(day, p); // 通常モードなら募集詳細
-                }
-            };
-            // ホバーでポップアップ
+            td.onclick = () => { isEditMode ? openCourseModal(day, p, "") : openRecruitmentModal(day, p); };
             td.onmouseenter = (e) => showTicker(e, day, p);
             td.onmouseleave = hideTicker;
           }
@@ -286,11 +257,9 @@
         const val = document.getElementById(id).value;
         if(val) params.append(id.replace('filter','').toLowerCase(), val);
       });
-
       const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const endOfWeek = new Date(currentWeekStart);
       endOfWeek.setDate(currentWeekStart.getDate() + 6);
-      
       params.append('start_date', formatDate(currentWeekStart));
       params.append('end_date', formatDate(endOfWeek));
       params.append('username', user); 
@@ -300,22 +269,17 @@
           if (!res.ok) throw new Error(res.statusText);
           const data = await res.json();
 
-          // 一旦アイコンをクリア
+          // 修正点: 無条件にクリアしてアイコンの二重追加を防ぐ
           document.querySelectorAll('.slot-cell').forEach(c => { 
-            // 既存のHTMLを保持しつつheatmap-contentだけ消すのが理想だが、
-            // 簡易的にinnerHTMLクリアして再構築する実装になっているため、再描画のたびにリセットされる
-            if(!c.querySelector('span')) { // 授業名が入っていないセルだけ対象
-               c.innerHTML = '';
-               c.style.backgroundColor = 'transparent';
-               c.classList.remove('has-mine'); 
-            }
+             c.innerHTML = '';
+             c.style.backgroundColor = 'transparent';
+             c.classList.remove('has-mine'); 
           });
 
           for (const [key, item] of Object.entries(data)) {
             const cell = document.getElementById(`cell-${key}`);
             if (cell && item.count > 0 && !myCourses[key]) {
               if (item.has_mine) cell.classList.add('has-mine');
-
               const div = document.createElement('div');
               div.className = 'heatmap-content';
               item.categories.forEach(cat => {
@@ -327,54 +291,42 @@
               cell.appendChild(div);
             }
           }
-      } catch(e) {
-          console.error("ヒートマップ読み込みエラー", e);
-      }
+      } catch(e) { console.error("ヒートマップ読み込みエラー", e); }
     }
 
     async function showTicker(e, day, slot) {
       if (isEditMode) return;
-      
       const popup = document.getElementById('tickerPopup');
       const text = document.getElementById('tickerText');
-      
-      // マウス位置ではなくセルの位置に合わせる
       const rect = e.target.getBoundingClientRect();
       popup.style.left = (rect.left + window.scrollX) + 'px';
-      // セルのすぐ上に表示
       popup.style.top = (rect.top + window.scrollY - 45) + 'px';
       
-      // データ取得 (キャッシュしたほうが良いが簡易実装)
       const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
       const list = await res.json();
-
-      if (list.length === 0) return; // 0件なら出さない
+      if (list.length === 0) return; 
 
       popup.style.display = 'block';
       const titles = list.map(r => `【${CATEGORY_ICONS[r.category]||'✨'}${r.title}】`).join("  ");
       text.textContent = titles + "     " + titles;
-      // アニメーション設定
       text.style.animation = 'none';
-      text.offsetHeight; /* trigger reflow */
+      text.offsetHeight; 
       const duration = Math.max(5, titles.length * 0.3);
       text.style.animation = `ticker ${duration}s linear infinite`;
     }
 
-    function hideTicker() {
-      document.getElementById('tickerPopup').style.display = 'none';
-    }
+    function hideTicker() { document.getElementById('tickerPopup').style.display = 'none'; }
 
     async function openRecruitmentModal(day, slot) {
       hideTicker();
-
-      currentSelected = { day, slot };
-
+      // 修正点: 現在選択中の情報を更新
+      currentSelected = { day, slot }; 
+      
       const modal = document.getElementById('recruitmentModal');
       document.getElementById('recModalTitle').textContent = `${day}曜 ${slot}限 の募集`;
       const listDiv = document.getElementById('modalRecList');
       listDiv.innerHTML = '読み込み中...';
       
-      // viewerパラメータを追加して状態を取得
       const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}&viewer=${encodeURIComponent(user)}`);
       const list = await res.json();
       
@@ -384,26 +336,14 @@
       } else {
         list.forEach(rec => {
           const isMine = (rec.creator_username === user);
-          const status = rec.my_status; // pending, approved, rejected, or null
-          
+          const status = rec.my_status;
           const div = document.createElement('div');
           div.className = `rec-item ${isMine ? 'mine' : ''} ${status ? 'applied' : ''}`;
-          
           let btnHtml = '';
-          if (isMine) {
-            btnHtml = `<span style="font-size:12px; color:var(--primary); font-weight:bold;">あなたの募集</span>`;
-          } else if (status) {
-            const statusLabel = status==='pending'?'申請中':(status==='approved'?'承認済':'却下');
-            btnHtml = `<button class="apply-mini-btn" disabled style="background:#ccc;">${statusLabel}</button>`;
-          } else {
-            btnHtml = `<button class="apply-mini-btn" onclick="applyRec(${rec.id})">参加申請</button>`;
-          }
-
-          div.innerHTML = `
-            <h4>${CATEGORY_ICONS[rec.category]||'✨'} ${rec.title}</h4>
-            <div class="rec-meta">👤 ${rec.creator_username} | 📍 ${rec.location || '-'}</div>
-            <div style="display:flex; justify-content:flex-end;">${btnHtml}</div>
-          `;
+          if (isMine) btnHtml = `<span style="font-size:12px; color:var(--primary); font-weight:bold;">あなたの募集</span>`;
+          else if (status) btnHtml = `<button class="apply-mini-btn" disabled style="background:#ccc;">${status==='pending'?'申請中':(status==='approved'?'承認済':'却下')}</button>`;
+          else btnHtml = `<button class="apply-mini-btn" onclick="applyRec(${rec.id})">参加申請</button>`;
+          div.innerHTML = `<h4>${CATEGORY_ICONS[rec.category]||'✨'} ${rec.title}</h4><div class="rec-meta">👤 ${rec.creator_username} | 📍 ${rec.location || '-'}</div><div style="display:flex; justify-content:flex-end;">${btnHtml}</div>`;
           listDiv.appendChild(div);
         });
       }
@@ -415,70 +355,89 @@
 
     function setupModalInputs() {
       const catSelect = document.getElementById('newCategorySelect');
-      catSelect.innerHTML = ''; // 重複防止のためクリア
+      catSelect.innerHTML = '';
       Object.keys(CATEGORY_SETTINGS).forEach(c => { catSelect.add(new Option(c, c)); });
-      
       const presets = document.getElementById('presetButtons');
-      presets.innerHTML = ''; // クリア
+      presets.innerHTML = '';
       Object.entries(CATEGORY_SETTINGS).forEach(([k, v]) => {
         const btn = document.createElement('button');
         btn.className = 'preset-btn'; btn.textContent = `${v.icon} ${k}`;
         btn.onclick = () => { document.getElementById('newCategorySelect').value = k; toggleCategoryInput(); if(v.title) document.getElementById('newTitle').value = v.title; };
         presets.appendChild(btn);
       });
-      
       const sSlot = document.getElementById('newStartSlot');
       const eSlot = document.getElementById('newEndSlot');
       sSlot.innerHTML = ''; eSlot.innerHTML = '';
       for(let i=1; i<=8; i++){ sSlot.add(new Option(i+'限', i)); eSlot.add(new Option(i+'限', i)); }
+      
+      // 曜日選択の生成
+      const daySel = document.getElementById('newDaySelect');
+      daySel.innerHTML = '';
+      days.forEach(d => daySel.add(new Option(d + '曜', d)));
     }
 
     function setupCreateForm(day, slot) {
       document.getElementById('newStartSlot').value = slot;
       document.getElementById('newEndSlot').value = slot;
-      updateFreeUsers(); // 値セット後に計算
+      document.getElementById('newWeekOffset').value = "0"; // 今週
+      document.getElementById('newDaySelect').value = day;
+      updateFreeUsers();
     }
+    
     function toggleCategoryInput() {
       const val = document.getElementById('newCategorySelect').value;
       document.getElementById('newCategoryInput').style.display = (val === 'その他') ? 'block' : 'none';
     }
+
     async function updateFreeUsers() {
-      const day = currentSelected.day; if(!day) return;
-      // IDが newStartSlot である点に注意
+      // 修正: 選択ボックスから曜日を取得
+      const day = document.getElementById('newDaySelect').value;
+      if(!day) return;
       const s = document.getElementById('newStartSlot').value;
       const e = document.getElementById('newEndSlot').value;
       const display = document.getElementById('modalFreeUsers');
-      
       display.textContent = "計算中...";
       try {
         const res = await fetch(`${API}/free_users?day=${day}&start_slot=${s}&end_slot=${e}`);
         if (!res.ok) throw new Error("API Error");
         const data = await res.json();
         display.textContent = `この期間の空きユーザー: 約 ${data.count} 人`;
-      } catch (err) { 
-        console.error(err);
-        display.textContent = "取得失敗"; 
-      }
+      } catch (err) { display.textContent = "取得失敗"; }
     }
+
     async function createNewRecruitment() {
       let cat = document.getElementById('newCategorySelect').value;
       if(cat === 'その他') cat = document.getElementById('newCategoryInput').value;
+      
+      // 日付計算
+      const weekOffset = parseInt(document.getElementById('newWeekOffset').value);
+      const selectedDay = document.getElementById('newDaySelect').value;
+      const dayMap = {'月':0, '火':1, '水':2, '木':3, '金':4};
+      
+      const targetDate = new Date(currentWeekStart);
+      targetDate.setDate(targetDate.getDate() + (weekOffset * 7) + dayMap[selectedDay]);
+      const dateStr = targetDate.toISOString().split('T')[0];
+
       const body = {
         creator_username: user, title: document.getElementById('newTitle').value,
         category: cat, max_participants: parseInt(document.getElementById('newMax').value),
         location: document.getElementById('newLocation').value,
-        date: new Date().toISOString().split('T')[0], day: currentSelected.day,
-        start_slot: parseInt(document.getElementById('newStartSlot').value), end_slot: parseInt(document.getElementById('newEndSlot').value)
+        date: dateStr, day: selectedDay,
+        start_slot: parseInt(document.getElementById('newStartSlot').value), 
+        end_slot: parseInt(document.getElementById('newEndSlot').value)
       };
       if(!body.title || !body.category) { alert('タイトル/カテゴリは必須です'); return; }
+      
       const res = await fetch(`${API}/recruitments`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      if(res.ok) { alert('募集を作成しました！'); openRecruitmentModal(body.day, body.start_slot); } else { alert('作成失敗'); }
+      if(res.ok) { alert('募集を作成しました！'); closeRecModal(); } else { alert('作成失敗'); }
     }
+
     async function applyRec(id) {
         if(!confirm('参加申請しますか？')) return;
         const res = await fetch(`${API}/recruitments/${id}/apply`, {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({applicant_username: user})});
         if(res.ok) alert('申請しました！');
     }
+    
     function openCourseModal(day, slot, content) {
       currentSelected = {day, slot}; document.getElementById('courseContent').value = content; document.getElementById('courseModal').style.display = 'block';
     }
@@ -494,6 +453,7 @@
     document.getElementById('filterResetBtn').onclick = () => { ['filterGrade','filterFaculty','filterCircles'].forEach(i=>document.getElementById(i).value=''); loadHeatmap(); };
     const editBtn = document.getElementById('editModeBtn');
     editBtn.onclick = () => { isEditMode = !isEditMode; editBtn.classList.toggle('active'); editBtn.textContent = isEditMode ? '登録モード (解除)' : '講義を登録'; };
+    
     const tt=document.getElementById('themeToggle');
     function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); tt.textContent=t==='dark'?'☀️':'🌙'; localStorage.setItem('coma_theme',t); }
     tt.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'));
