@@ -194,17 +194,19 @@
     Object.keys(CATEGORY_SETTINGS).forEach(k => CATEGORY_ICONS[k] = CATEGORY_SETTINGS[k].icon);
 
     async function initializeTimetable() {
+      setupModalInputs(); // 先にメニューを作ってしまう
       await loadCourses();
       renderTable();
-      await loadHeatmap();
-      setupModalInputs();
+      await loadHeatmap(); // ここでエラーが出てもメニューは表示される
     }
 
     async function loadCourses() {
-      const res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
-      const list = await res.json();
-      myCourses = {};
-      list.forEach(c => myCourses[`${c.day}-${c.slot}`] = c.content);
+      try {
+        const res = await fetch(`${API}/courses?username=${encodeURIComponent(user)}`);
+        const list = await res.json();
+        myCourses = {};
+        list.forEach(c => myCourses[`${c.day}-${c.slot}`] = c.content);
+      } catch(e) { console.error("講義取得エラー", e); }
     }
 
     // ▼▼▼ 週移動関数 ▼▼▼
@@ -254,11 +256,20 @@
             td.className = 'course-cell';
             td.innerHTML = `<span>${myCourses[key]}</span>`;
             // 授業があってもクリックで編集
-            td.onclick = () => openCourseModal(day, p, myCourses[key]);
+            td.onclick = () => {
+                if (isEditMode) openCourseModal(day, p, myCourses[key]);
+                // 講義があるときは募集詳細を開かない仕様なら何もしない、あるいは開くならここに追加
+            };
           } else {
             td.className = 'slot-cell';
-            // 1回クリックで詳細モーダル
-            td.onclick = () => openRecruitmentModal(day, p);
+            // 空きセルをクリックした時の挙動 (モード判定)
+            td.onclick = () => {
+                if (isEditMode) {
+                    openCourseModal(day, p, ""); // 登録モードなら講義登録
+                } else {
+                    openRecruitmentModal(day, p); // 通常モードなら募集詳細
+                }
+            };
             // ホバーでポップアップ
             td.onmouseenter = (e) => showTicker(e, day, p);
             td.onmouseleave = hideTicker;
@@ -270,47 +281,54 @@
     }
 
     async function loadHeatmap() {
-      // (params生成部分はそのまま)
-      // viewerとして自分を渡す
-      params.append('username', user); 
-
-      const res = await fetch(`${API}/heatmap?${params.toString()}`);
-      const data = await res.json();
-
-      document.querySelectorAll('.slot-cell').forEach(c => { 
-        c.innerHTML = ''; 
-        c.style.backgroundColor = 'transparent';
-        c.classList.remove('has-mine'); // クラスリセット
+      const params = new URLSearchParams();
+      ['filterGrade','filterFaculty','filterCircles'].forEach(id => {
+        const val = document.getElementById(id).value;
+        if(val) params.append(id.replace('filter','').toLowerCase(), val);
       });
 
-      for (const [key, item] of Object.entries(data)) {
-        const cell = document.getElementById(`cell-${key}`);
-        if (cell && item.count > 0 && !myCourses[key]) {
-          // 自分の募集があれば強調クラス付与
-          if (item.has_mine) cell.classList.add('has-mine');
+      const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const endOfWeek = new Date(currentWeekStart);
+      endOfWeek.setDate(currentWeekStart.getDate() + 6);
+      
+      params.append('start_date', formatDate(currentWeekStart));
+      params.append('end_date', formatDate(endOfWeek));
+      params.append('username', user); 
 
-          const div = document.createElement('div');
-          div.className = 'heatmap-content';
-          item.categories.forEach(cat => {
-            const span = document.createElement('span');
-            span.className = 'heatmap-icon';
-            span.textContent = CATEGORY_ICONS[cat] || '✨';
-            div.appendChild(span);
+      try {
+          const res = await fetch(`${API}/heatmap?${params.toString()}`);
+          if (!res.ok) throw new Error(res.statusText);
+          const data = await res.json();
+
+          // 一旦アイコンをクリア
+          document.querySelectorAll('.slot-cell').forEach(c => { 
+            // 既存のHTMLを保持しつつheatmap-contentだけ消すのが理想だが、
+            // 簡易的にinnerHTMLクリアして再構築する実装になっているため、再描画のたびにリセットされる
+            if(!c.querySelector('span')) { // 授業名が入っていないセルだけ対象
+               c.innerHTML = '';
+               c.style.backgroundColor = 'transparent';
+               c.classList.remove('has-mine'); 
+            }
           });
-          cell.appendChild(div);
-        }
-      }
-    }
 
-    function handleCellClick(e, day, slot) {
-      if (isEditMode) {
-        openCourseModal(day, slot, myCourses[`${day}-${slot}`] || "");
-      } else if (!myCourses[`${day}-${slot}`]) {
-        if (currentSelected.day === day && currentSelected.slot === slot && document.getElementById('tickerPopup').style.display === 'block') {
-           openRecruitmentModal(day, slot);
-        } else {
-           showTicker(e, day, slot);
-        }
+          for (const [key, item] of Object.entries(data)) {
+            const cell = document.getElementById(`cell-${key}`);
+            if (cell && item.count > 0 && !myCourses[key]) {
+              if (item.has_mine) cell.classList.add('has-mine');
+
+              const div = document.createElement('div');
+              div.className = 'heatmap-content';
+              item.categories.forEach(cat => {
+                const span = document.createElement('span');
+                span.className = 'heatmap-icon';
+                span.textContent = CATEGORY_ICONS[cat] || '✨';
+                div.appendChild(span);
+              });
+              cell.appendChild(div);
+            }
+          }
+      } catch(e) {
+          console.error("ヒートマップ読み込みエラー", e);
       }
     }
 
@@ -394,23 +412,28 @@
 
     function setupModalInputs() {
       const catSelect = document.getElementById('newCategorySelect');
+      catSelect.innerHTML = ''; // 重複防止のためクリア
       Object.keys(CATEGORY_SETTINGS).forEach(c => { catSelect.add(new Option(c, c)); });
+      
       const presets = document.getElementById('presetButtons');
+      presets.innerHTML = ''; // クリア
       Object.entries(CATEGORY_SETTINGS).forEach(([k, v]) => {
         const btn = document.createElement('button');
         btn.className = 'preset-btn'; btn.textContent = `${v.icon} ${k}`;
         btn.onclick = () => { document.getElementById('newCategorySelect').value = k; toggleCategoryInput(); if(v.title) document.getElementById('newTitle').value = v.title; };
         presets.appendChild(btn);
       });
+      
       const sSlot = document.getElementById('newStartSlot');
       const eSlot = document.getElementById('newEndSlot');
+      sSlot.innerHTML = ''; eSlot.innerHTML = '';
       for(let i=1; i<=8; i++){ sSlot.add(new Option(i+'限', i)); eSlot.add(new Option(i+'限', i)); }
     }
 
     function setupCreateForm(day, slot) {
       document.getElementById('newStartSlot').value = slot;
       document.getElementById('newEndSlot').value = slot;
-      updateFreeUsers();
+      updateFreeUsers(); // 値セット後に計算
     }
     function toggleCategoryInput() {
       const val = document.getElementById('newCategorySelect').value;
