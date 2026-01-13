@@ -340,19 +340,30 @@ def create_recruitment():
 @app.route("/recruitments", methods=["GET"])
 def get_recruitments():
     db = get_db()
-    query = "SELECT * FROM recruitments WHERE 1=1"
-    params = []
     
-    # 過去のイベントを除外 (デフォルト動作) 
-    # クエリパラメータ include_past=true があれば過去も表示
+    # 閲覧者(viewer)がいれば、その人の参加状況(status)も取得する
+    viewer = request.args.get('viewer')
+    
+    if viewer:
+        query = """
+            SELECT r.*, p.status as my_status 
+            FROM recruitments r
+            LEFT JOIN participants p ON r.id = p.recruitment_id AND p.applicant_username = ?
+            WHERE 1=1
+        """
+        params = [viewer]
+    else:
+        query = "SELECT r.* FROM recruitments r WHERE 1=1"
+        params = []
+    
+    # 過去のイベントを除外 (デフォルト動作)
     if request.args.get('include_past') != 'true':
         today_str = dt.datetime.now().strftime("%Y-%m-%d")
-        query += " AND date >= ?"
+        query += " AND r.date >= ?"
         params.append(today_str)
 
     multi_slots_query = []
     
-    # 複数コマ検索 (例: '月-1,火-3')
     if 'multi_slots' in request.args and request.args['multi_slots']:
         slot_pairs = request.args['multi_slots'].split(',')
         for pair in slot_pairs:
@@ -360,40 +371,36 @@ def get_recruitments():
             if len(parts) == 2:
                 day, slot = parts[0].strip(), int(parts[1].strip())
                 if day:
-                    # そのコマが start_slot と end_slot の間に含まれる募集を検索
-                    multi_slots_query.append("(day = ? AND ? BETWEEN start_slot AND end_slot)")
+                    multi_slots_query.append("(r.day = ? AND ? BETWEEN r.start_slot AND r.end_slot)")
                     params.extend([day, slot])
         
         if multi_slots_query:
             query += " AND (" + " OR ".join(multi_slots_query) + ")"
 
-    # 通常のフィルタリング
     else:
         if 'category' in request.args:
-            query += " AND category = ?"
+            query += " AND r.category = ?"
             params.append(request.args['category'])
 
         if 'location' in request.args:
-            query += " AND location = ?"
-            params.append(request.args['location'])
+            query += " AND r.location LIKE ?"
+            params.append(f"%{request.args['location']}%")
             
         if 'date' in request.args:
-            query += " AND date = ?"
+            query += " AND r.date = ?"
             params.append(request.args['date'])
 
         if 'day' in request.args:
-            query += " AND day = ?"
+            query += " AND r.day = ?"
             params.append(request.args['day'])
 
-        # ▼ 修正: slot検索を範囲検索に変更
         if 'slot' in request.args:
-            query += " AND ? BETWEEN start_slot AND end_slot"
+            query += " AND ? BETWEEN r.start_slot AND r.end_slot"
             params.append(request.args['slot'])
 
     cur = db.execute(query, params)
     recruitments = [dict(row) for row in cur.fetchall()]
     return jsonify(recruitments)
-# ▲▲▲ 改修完了 ▲▲▲
 
 @app.route("/recruitments/<int:rec_id>/apply", methods=["POST"])
 def apply_for_recruitment(rec_id):
@@ -443,7 +450,7 @@ def update_application_status(app_id):
 def get_heatmap():
     db = get_db()
     
-    query = "SELECT r.day, r.start_slot, r.end_slot, r.category FROM recruitments r"
+    query = "SELECT r.day, r.start_slot, r.end_slot, r.category, r.creator_username FROM recruitments r"
     params = []
     join_clause = ""
     filters = []
@@ -475,22 +482,31 @@ def get_heatmap():
     rows = cur.fetchall()
 
     heatmap_data = {}
+    
+    # リクエストしたユーザー名を取得
+    viewer = request.args.get('username') 
 
     for row in rows:
         day = row['day']
         start = row['start_slot']
         end = row['end_slot']
         category = row['category']
+        creator = row['creator_username'] # 取得カラムに追加が必要な場合があるが SELECT * 的な指定ならOK
+        # ※もしエラーが出る場合はクエリを SELECT r.* ... に変更してください
         
-        # 複数コマを1コマずつ展開して集計
+        is_mine = (viewer and creator == viewer)
+
         for slot in range(start, end + 1):
             key = f"{day}-{slot}"
             if key not in heatmap_data:
-                heatmap_data[key] = {"count": 0, "categories": []}
+                heatmap_data[key] = {"count": 0, "categories": [], "has_mine": False}
             
             heatmap_data[key]["count"] += 1
             if category not in heatmap_data[key]["categories"]:
                 heatmap_data[key]["categories"].append(category)
+            
+            if is_mine:
+                heatmap_data[key]["has_mine"] = True
 
     return jsonify(heatmap_data)
 
