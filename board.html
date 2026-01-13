@@ -8,6 +8,7 @@
     /* mypage.htmlのスタイルを参考にしています */
     :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --tag-bg: #e0e0e0; }
     html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --tag-bg: #4f4f4f; }
+    
     body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; }
     header { background: var(--panel); padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     header h1 { font-size: 1.2em; }
@@ -15,15 +16,29 @@
     .toolbar { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
     .toolbar button { flex: 1; padding: 8px; background: var(--panel); border: none; cursor: pointer; font-size: 14px; }
     .toolbar button.active { background: var(--highlight); color: #fff; }
-    main { padding: 20px; }
-    .filter-section { background: var(--panel); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
-    .filter-section input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg); color: var(--fg); }
-    .create-btn { display: block; width: 100%; padding: 12px; background: var(--primary); color: #fff; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 20px; }
-    .recruitment-card { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-    .recruitment-card h3 { margin: 0 0 10px 0; }
-    .recruitment-card .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
-    .recruitment-card .tag { background: var(--tag-bg); color: var(--fg); padding: 4px 8px; border-radius: 12px; font-size: 12px; }
-    .recruitment-card .apply-btn { position: absolute; top: 50%; right: 15px; transform: translateY(-50%); padding: 6px 12px; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    main { padding: 20px; max-width: 800px; margin: 0 auto; }
+
+    .filter-container { background: var(--panel); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border); }
+    .cat-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .cat-btn { padding: 6px 12px; border: 1px solid var(--border); background: var(--bg); border-radius: 20px; cursor: pointer; color: var(--fg); }
+    .cat-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+    
+    .search-row { display: flex; gap: 10px; }
+    .search-row input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+    .search-row button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    .create-link { display: block; background: var(--panel); border: 2px dashed var(--primary); color: var(--primary); text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 20px; }
+    .create-link:hover { background: rgba(33, 150, 243, 0.1); }
+
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; position: relative; }
+    .card h3 { margin: 0 0 10px 0; color: var(--primary); font-size: 1.1em; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.9em; color: var(--fg); opacity: 0.9; margin-bottom: 10px; }
+    .tag { background: var(--tag-bg); padding: 3px 8px; border-radius: 4px; font-size: 0.8em; }
+    
+    .action-area { display: flex; justify-content: flex-end; align-items: center; margin-top: 10px; }
+    .status-text { font-size: 0.9em; font-weight: bold; color: #999; margin-right: 10px; }
+    .apply-btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .apply-btn:disabled { background: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -95,50 +110,60 @@
 
     // 募集一覧を読み込んで表示する関数
     async function loadRecruitments() {
-      let url = `${API}/recruitments?`;
       const params = new URLSearchParams();
+      params.append('viewer', user); // 自分の状態を知るために必要
 
       if (currentCategory) params.append('category', currentCategory);
-
-      // 1. URLパラメータ (jikanwari.htmlからの遷移)
+      if (filterLocation.value) params.append('location', filterLocation.value);
+      
+      // jikanwariからの遷移用
       if (dayParam && slotParam) {
         params.append('day', dayParam);
         params.append('slot', slotParam);
-      
-      // 3. 通常のフィルター
-      } else {
-        // if (filterCategory.value) params.append('category', filterCategory.value);
-        if (filterLocation.value) params.append('location', filterLocation.value);
       }
       
-      const res = await fetch(url + params.toString());
+      // 過去の募集を含めない (デフォルト)
+
+      const res = await fetch(`${API}/recruitments?${params.toString()}`);
       const recruitments = await res.json();
       
-      recruitmentList.innerHTML = ''; // 一旦クリア
+      recruitmentList.innerHTML = '';
       if (recruitments.length === 0) {
-        recruitmentList.innerHTML = '<p>現在、募集はありません。</p>';
+        recruitmentList.innerHTML = '<p style="text-align:center; color:#888;">条件に一致する募集はありません。</p>';
         return;
       }
 
       recruitments.forEach(rec => {
+        const isMine = (rec.creator_username === user);
+        const status = rec.my_status; // APIから返ってくる
+        
         const card = document.createElement('div');
-        card.className = 'recruitment-card';
-
-        // 日時のフォーマット処理を削除
-        // const startTime = new Date(rec.start_time).toLocaleString('ja-JP');
-        // const endTime = new Date(rec.end_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        card.className = 'card';
+        
+        // ボタンの出しわけ
+        let actionHtml = '';
+        if (isMine) {
+          actionHtml = `<span class="status-text" style="color:var(--primary);">あなたが作成した募集</span>`;
+        } else if (status) {
+          const label = status==='pending'?'申請中':(status==='approved'?'承認済':'却下');
+          actionHtml = `<button class="apply-btn" disabled>${label}</button>`;
+        } else {
+          actionHtml = `<button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>`;
+        }
 
         card.innerHTML = `
           <h3>${rec.title}</h3>
-          <div class="tags">
+          <div class="card-meta">
             <span class="tag">👤 ${rec.creator_username}</span>
-            <span class="tag">📁 ${rec.category || '指定なし'}</span>
-            <span class="tag">📍 ${rec.location || '指定なし'}</span>
-            <span class="tag">👥 ${rec.max_participants}人</span>
+            <span class="tag">📁 ${rec.category || 'その他'}</span>
+            <span class="tag">📍 ${rec.location || '未定'}</span>
             <span class="tag">⏰ ${rec.day}曜 ${rec.start_slot}〜${rec.end_slot}限</span>
+            <span class="tag">👥 定員 ${rec.max_participants}名</span>
           </div>
-          <button class="apply-btn" onclick="applyToRecruitment(${rec.id})">参加申請</button>
-          `;
+          <div class="action-area">
+            ${actionHtml}
+          </div>
+        `;
         recruitmentList.appendChild(card);
       });
     }

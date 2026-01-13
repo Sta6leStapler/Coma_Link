@@ -169,8 +169,25 @@
       const todayJP = jpWeek[new Date().getDay()];
       const todayList = list.filter(c => c.day === todayJP);
       const tbody = document.querySelector('#ttTable tbody');
-      if(todayList.length === 0) { tbody.innerHTML = '<tr><td colspan="2">今日の授業はありません</td></tr>'; return; }
-      tbody.innerHTML = todayList.map(c => `<tr><td>${c.slot}限</td><td>${c.content}</td></tr>`).join('');
+      
+      if(todayList.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="2">今日の授業はありません</td></tr>'; 
+        return; 
+      }
+      
+      // スロット順に並べ替え
+      todayList.sort((a,b) => a.slot - b.slot);
+
+      tbody.innerHTML = todayList.map(c => {
+        let label = '';
+        const s = c.slot;
+        // jikanwari.htmlと同じロジック
+        if (s === 3) label = '昼休み';
+        else if (s < 3) label = `${s}限`;
+        else label = `${s - 1}限`; // 4→3限, 5→4限...
+        
+        return `<tr><td>${label}</td><td>${c.content}</td></tr>`;
+      }).join('');
     }
 
     // テーマ設定

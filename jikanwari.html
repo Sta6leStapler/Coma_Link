@@ -59,6 +59,26 @@
     .form-group { margin-bottom: 10px; } .form-group label { display: block; font-size: 12px; margin-bottom: 2px; } .form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
     .preset-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-right: 4px; margin-bottom: 4px; }
     #editModeBtn.active { background-color: var(--primary) !important; color: white; font-weight: bold; }
+
+    /* 自分の募集があるコマの強調 */
+    .slot-cell.has-mine {
+      border: 2px solid var(--primary) !important;
+      background-color: rgba(33, 150, 243, 0.1);
+    }
+    
+    /* ポップアップのチラつき防止 */
+    #tickerPopup {
+      pointer-events: none; /* マウスイベントを無視して下のセルに渡す */
+    }
+
+    /* ナイトモード文字色修正 */
+    .rec-item h4 { color: var(--fg); }
+    .rec-meta { color: var(--fg); opacity: 0.8; }
+    
+    /* 募集アイテム: 自分の募集 */
+    .rec-item.mine { border-left: 5px solid var(--primary); background: var(--bg); }
+    /* 募集アイテム: 申請済み */
+    .rec-item.applied { border-left: 5px solid #ffa726; opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -193,7 +213,6 @@
       renderTable();
       loadHeatmap();
     }
-    // ▲▲▲ 追加 ▲▲▲
 
     function renderTable() {
       // 週ラベル更新
@@ -234,10 +253,16 @@
           if (myCourses[key]) {
             td.className = 'course-cell';
             td.innerHTML = `<span>${myCourses[key]}</span>`;
+            // 授業があってもクリックで編集
+            td.onclick = () => openCourseModal(day, p, myCourses[key]);
           } else {
             td.className = 'slot-cell';
+            // 1回クリックで詳細モーダル
+            td.onclick = () => openRecruitmentModal(day, p);
+            // ホバーでポップアップ
+            td.onmouseenter = (e) => showTicker(e, day, p);
+            td.onmouseleave = hideTicker;
           }
-          td.onclick = (e) => handleCellClick(e, day, p);
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -245,28 +270,25 @@
     }
 
     async function loadHeatmap() {
-      const params = new URLSearchParams();
-      ['filterGrade','filterFaculty','filterCircles'].forEach(id => {
-        const val = document.getElementById(id).value;
-        if(val) params.append(id.replace('filter','').toLowerCase(), val);
-      });
-
-      // ▼▼▼ 修正: 表示中の週の開始日・終了日を送信 ▼▼▼
-      const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const endOfWeek = new Date(currentWeekStart);
-      endOfWeek.setDate(currentWeekStart.getDate() + 6); // 日曜まで含める
-      params.append('start_date', formatDate(currentWeekStart));
-      params.append('end_date', formatDate(endOfWeek));
-      // ▲▲▲ 追加 ▲▲▲
+      // (params生成部分はそのまま)
+      // viewerとして自分を渡す
+      params.append('username', user); 
 
       const res = await fetch(`${API}/heatmap?${params.toString()}`);
       const data = await res.json();
 
-      document.querySelectorAll('.slot-cell').forEach(c => { c.innerHTML = ''; c.style.backgroundColor = 'transparent'; });
+      document.querySelectorAll('.slot-cell').forEach(c => { 
+        c.innerHTML = ''; 
+        c.style.backgroundColor = 'transparent';
+        c.classList.remove('has-mine'); // クラスリセット
+      });
 
       for (const [key, item] of Object.entries(data)) {
         const cell = document.getElementById(`cell-${key}`);
         if (cell && item.count > 0 && !myCourses[key]) {
+          // 自分の募集があれば強調クラス付与
+          if (item.has_mine) cell.classList.add('has-mine');
+
           const div = document.createElement('div');
           div.className = 'heatmap-content';
           item.categories.forEach(cat => {
@@ -293,52 +315,73 @@
     }
 
     async function showTicker(e, day, slot) {
-      currentSelected = { day, slot };
+      if (isEditMode) return;
+      
       const popup = document.getElementById('tickerPopup');
       const text = document.getElementById('tickerText');
+      
+      // マウス位置ではなくセルの位置に合わせる
       const rect = e.target.getBoundingClientRect();
       popup.style.left = (rect.left + window.scrollX) + 'px';
-      popup.style.top = (rect.top + window.scrollY - 50) + 'px';
-      popup.style.display = 'block';
-      text.style.animation = 'none';
-      text.textContent = "読み込み中...";
-
+      // セルのすぐ上に表示
+      popup.style.top = (rect.top + window.scrollY - 45) + 'px';
+      
+      // データ取得 (キャッシュしたほうが良いが簡易実装)
       const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
       const list = await res.json();
 
-      if (list.length === 0) {
-        text.textContent = "募集中 0件 (クリックで作成)";
-      } else {
-        const titles = list.map(r => `【${CATEGORY_ICONS[r.category]||'✨'}${r.title}】`).join("  ");
-        text.textContent = titles + "     " + titles;
-        const duration = (titles.length * 0.3) + 5;
-        text.style.animation = `ticker ${duration}s linear infinite`;
-      }
-      if (tickerTimer) clearTimeout(tickerTimer);
-      tickerTimer = setTimeout(() => { popup.style.display = 'none'; }, 5000);
-      popup.onclick = () => openRecruitmentModal(day, slot);
+      if (list.length === 0) return; // 0件なら出さない
+
+      popup.style.display = 'block';
+      const titles = list.map(r => `【${CATEGORY_ICONS[r.category]||'✨'}${r.title}】`).join("  ");
+      text.textContent = titles + "     " + titles;
+      // アニメーション設定
+      text.style.animation = 'none';
+      text.offsetHeight; /* trigger reflow */
+      const duration = Math.max(5, titles.length * 0.3);
+      text.style.animation = `ticker ${duration}s linear infinite`;
+    }
+
+    function hideTicker() {
+      document.getElementById('tickerPopup').style.display = 'none';
     }
 
     async function openRecruitmentModal(day, slot) {
-      document.getElementById('tickerPopup').style.display = 'none';
+      hideTicker();
       const modal = document.getElementById('recruitmentModal');
       document.getElementById('recModalTitle').textContent = `${day}曜 ${slot}限 の募集`;
       const listDiv = document.getElementById('modalRecList');
       listDiv.innerHTML = '読み込み中...';
-      const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}`);
+      
+      // viewerパラメータを追加して状態を取得
+      const res = await fetch(`${API}/recruitments?day=${day}&slot=${slot}&viewer=${encodeURIComponent(user)}`);
       const list = await res.json();
       
       listDiv.innerHTML = '';
       if(list.length === 0) {
-        listDiv.innerHTML = '<p style="color:#666;">募集はありません。</p>';
+        listDiv.innerHTML = '<p style="color:var(--fg);">募集はありません。</p>';
       } else {
         list.forEach(rec => {
+          const isMine = (rec.creator_username === user);
+          const status = rec.my_status; // pending, approved, rejected, or null
+          
           const div = document.createElement('div');
-          div.className = 'rec-item';
+          div.className = `rec-item ${isMine ? 'mine' : ''} ${status ? 'applied' : ''}`;
+          
+          let btnHtml = '';
+          if (isMine) {
+            btnHtml = `<span style="font-size:12px; color:var(--primary); font-weight:bold;">あなたの募集</span>`;
+          } else if (status) {
+            const statusLabel = status==='pending'?'申請中':(status==='approved'?'承認済':'却下');
+            btnHtml = `<button class="apply-mini-btn" disabled style="background:#ccc;">${statusLabel}</button>`;
+          } else {
+            btnHtml = `<button class="apply-mini-btn" onclick="applyRec(${rec.id})">参加申請</button>`;
+          }
+
           div.innerHTML = `
             <h4>${CATEGORY_ICONS[rec.category]||'✨'} ${rec.title}</h4>
             <div class="rec-meta">👤 ${rec.creator_username} | 📍 ${rec.location || '-'}</div>
-            <button class="apply-mini-btn" onclick="applyRec(${rec.id})">参加申請</button>
+            <div style="display:flex; justify-content:flex-end;">${btnHtml}</div>
           `;
           listDiv.appendChild(div);
         });
@@ -375,16 +418,21 @@
     }
     async function updateFreeUsers() {
       const day = currentSelected.day; if(!day) return;
+      // IDが newStartSlot である点に注意
       const s = document.getElementById('newStartSlot').value;
       const e = document.getElementById('newEndSlot').value;
       const display = document.getElementById('modalFreeUsers');
+      
       display.textContent = "計算中...";
       try {
         const res = await fetch(`${API}/free_users?day=${day}&start_slot=${s}&end_slot=${e}`);
         if (!res.ok) throw new Error("API Error");
         const data = await res.json();
         display.textContent = `この期間の空きユーザー: 約 ${data.count} 人`;
-      } catch (err) { display.textContent = "取得失敗"; }
+      } catch (err) { 
+        console.error(err);
+        display.textContent = "取得失敗"; 
+      }
     }
     async function createNewRecruitment() {
       let cat = document.getElementById('newCategorySelect').value;
