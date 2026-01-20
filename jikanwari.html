@@ -257,14 +257,16 @@
                     return;
                 }
                 
-                // マウスが使える(PC)かどうかの判定
+                // タッチ機能があるかどうかを優先的に判定する
+                const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
                 const canHover = window.matchMedia('(hover: hover)').matches;
 
-                if (canHover) {
+                // 「タッチ非対応」かつ「ホバー対応」の場合のみPC(マウス操作)とみなす
+                if (!isTouch && canHover) {
                     // PC: 即詳細オープン
                     openRecruitmentModal(day, p);
                 } else {
-                    // スマホ: 2段階アクション
+                    // スマホ・タブレット: 2段階アクション
                     if (activePopupKey === key) {
                         // 2回目タップ -> 詳細を開く
                         openRecruitmentModal(day, p);
