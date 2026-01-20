@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>空きコマ アイコンマップ | Coma‑Link</title>
   <style>
-    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --danger: #f44336; }
-    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --danger: #d32f2f; }
+    :root { --bg: #f9f9f9; --fg: #333; --panel: #fff; --border: #ddd; --highlight: #b2fab4; --primary: #2196f3; --danger: #f44336; --current-border: #ff9800; }
+    html[data-theme="dark"] { --bg: #2b2b2b; --fg: #ddd; --panel: #3b3b3b; --border: #555; --highlight: #4caf50; --primary: #1976d2; --danger: #d32f2f; --current-border: #ffb74d; }
     body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; }
     header { background: var(--panel); padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     header h1 { font-size: 1.2em; }
@@ -31,6 +31,11 @@
     html[data-theme="dark"] .lunch-row th, html[data-theme="dark"] .lunch-row td { background-color: rgba(255,255,255,0.05); }
     .course-cell { background-color: var(--border); font-size: 12px; font-weight: bold; color: var(--fg); }
     .slot-cell { cursor: pointer; transition: background-color 0.2s; }
+    
+    /* ▼▼▼ 追加: 現在時刻のスタイル ▼▼▼ */
+    .current-slot { box-shadow: inset 0 0 0 3px var(--current-border) !important; position: relative; }
+    .current-slot::after { content: 'NOW'; position: absolute; top: 0; right: 0; background: var(--current-border); color: #000; font-size: 9px; padding: 2px 4px; font-weight: bold; border-bottom-left-radius: 4px; }
+
     .timetable .slot-cell:hover { background-color: var(--highlight) !important; }
     
     .heatmap-content { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 2px; width: 100%; height: 100%; pointer-events: none; }
@@ -54,6 +59,11 @@
     .form-group { margin-bottom: 10px; } .form-group label { display: block; font-size: 12px; margin-bottom: 2px; } .form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
     .preset-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-right: 4px; margin-bottom: 4px; }
     #editModeBtn.active { background-color: var(--primary) !important; color: white; font-weight: bold; }
+    
+    /* ▼▼▼ 追加: ヒートマップONボタンのスタイル ▼▼▼ */
+    #heatmapToggleBtn { background-color: var(--panel); border: 1px solid var(--border); color: var(--fg); font-weight: normal; margin-right: 10px; }
+    #heatmapToggleBtn.active { background-color: #4caf50; color: white; border-color: #4caf50; font-weight: bold; }
+
     .slot-cell.has-mine { border: 2px solid var(--primary) !important; background-color: rgba(33, 150, 243, 0.1); }
     .rec-item.mine { border-left: 5px solid var(--primary); background: var(--bg); }
     .rec-item.applied { border-left: 5px solid #ffa726; opacity: 0.8; }
@@ -77,6 +87,8 @@
       <button onclick="changeWeek(1)">次の週 ＞</button>
     </div>
     <div class="filter-section">
+      <button id="heatmapToggleBtn" onclick="toggleFreeHeatmap()">👥 空き状況マップ: OFF</button>
+      
       <span>絞り込み:</span>
       <select id="filterGrade"><option value="">学年 (すべて)</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option><option value="4">4年</option></select>
       <input type="text" id="filterFaculty" placeholder="学部">
@@ -163,18 +175,28 @@
 
     const days = ['月', '火', '水', '木', '金'];
     const maxPeriod = 8; 
-    const periodTimes = { 1:'09:00-10:30', 2:'10:40-12:10', 3:'12:10-13:00', 4:'13:00-14:30', 5:'14:40-16:10', 6:'16:15-17:45', 7:'17:50-19:20', 8:'19:30-21:00' };
+    
+    // ▼▼▼ 修正: 時間判定用に数値を保持する定義に変更 ▼▼▼
+    const periodDefinitions = {
+        1: {start: "09:00", end: "10:30"},
+        2: {start: "10:40", end: "12:10"},
+        3: {start: "12:10", end: "13:00"}, // 昼休み
+        4: {start: "13:00", end: "14:30"},
+        5: {start: "14:40", end: "16:10"},
+        6: {start: "16:15", end: "17:45"},
+        7: {start: "17:50", end: "19:20"},
+        8: {start: "19:30", end: "21:00"}
+    };
 
     let myCourses = {};
     let isEditMode = false;
+    let isHeatmapMode = false; // ヒートマップの状態
     let currentSelected = { day: '', slot: 0 };
     let tickerTimer = null;
+    let activePopupKey = null;
     let currentWeekStart = new Date();
     const dayNum = currentWeekStart.getDay() || 7; 
     currentWeekStart.setDate(currentWeekStart.getDate() - (dayNum - 1));
-
-    // ▼▼▼ 新規追加: スマホ用の状態管理 ▼▼▼
-    let activePopupKey = null;
 
     const CATEGORY_SETTINGS = {
         "食事": {icon: "🍱", "title": "ランチに行きませんか？"},
@@ -192,6 +214,8 @@
       await loadCourses();
       renderTable();
       await loadHeatmap();
+      highlightCurrentTime(); // 初回実行
+      setInterval(highlightCurrentTime, 60000); // 1分ごとに更新
     }
 
     async function loadCourses() {
@@ -207,6 +231,9 @@
       currentWeekStart.setDate(currentWeekStart.getDate() + (offset * 7));
       renderTable();
       loadHeatmap();
+      // 週を変えたら現在時刻表示はクリア（もし今週以外なら）するべきだが、
+      // 簡易的に常にhighlightCurrentTimeを呼んで、日付チェックで制御する
+      highlightCurrentTime();
     }
 
     function renderTable() {
@@ -236,12 +263,16 @@
         else if (p < 3) { label = `${p}限`; }
         else { label = `${p - 1}限`; }
 
-        tr.innerHTML = `<th>${label}<br><small>${periodTimes[p]||''}</small></th>`;
+        const timeStr = `${periodDefinitions[p].start}-${periodDefinitions[p].end}`;
+        tr.innerHTML = `<th>${label}<br><small>${timeStr}</small></th>`;
 
         days.forEach(day => {
           const td = document.createElement('td');
           const key = `${day}-${p}`;
           td.id = `cell-${key}`;
+          // 曜日情報を属性に追加（現在時刻判定用）
+          td.dataset.day = day; 
+          td.dataset.slot = p;
 
           if (myCourses[key]) {
             td.className = 'course-cell';
@@ -249,52 +280,35 @@
             td.onclick = () => { if (isEditMode) openCourseModal(day, p, myCourses[key]); };
           } else {
             td.className = 'slot-cell';
-            
-            // ▼▼▼ 修正: デバイス判定による挙動分岐 ▼▼▼
             td.onclick = (e) => { 
                 if (isEditMode) {
                     openCourseModal(day, p, "");
                     return;
                 }
-                
-                // タッチ機能があるかどうかを優先的に判定する
                 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
                 const canHover = window.matchMedia('(hover: hover)').matches;
-
-                // 「タッチ非対応」かつ「ホバー対応」の場合のみPC(マウス操作)とみなす
                 if (!isTouch && canHover) {
-                    // PC: 即詳細オープン
                     openRecruitmentModal(day, p);
                 } else {
-                    // スマホ・タブレット: 2段階アクション
                     if (activePopupKey === key) {
-                        // 2回目タップ -> 詳細を開く
                         openRecruitmentModal(day, p);
                         hideTicker(); 
                     } else {
-                        // 1回目タップ -> ポップアップ表示
                         showTicker(e, day, p);
                         activePopupKey = key;
                     }
                 }
             };
-            
-            // PC用のホバーイベント
-            td.onmouseenter = (e) => {
-                if (window.matchMedia('(hover: hover)').matches) {
-                    showTicker(e, day, p);
-                }
-            };
-            td.onmouseleave = () => {
-                if (window.matchMedia('(hover: hover)').matches) {
-                    hideTicker();
-                }
-            };
+            td.onmouseenter = (e) => { if (window.matchMedia('(hover: hover)').matches) showTicker(e, day, p); };
+            td.onmouseleave = () => { if (window.matchMedia('(hover: hover)').matches) hideTicker(); };
           }
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
       }
+      
+      // レンダリング後に現在時刻ハイライトを適用
+      highlightCurrentTime();
     }
 
     async function loadHeatmap() {
@@ -315,28 +329,113 @@
           if (!res.ok) throw new Error(res.statusText);
           const data = await res.json();
 
-          document.querySelectorAll('.slot-cell').forEach(c => { 
-             c.innerHTML = '';
-             c.style.backgroundColor = 'transparent';
-             c.classList.remove('has-mine'); 
-          });
-
-          for (const [key, item] of Object.entries(data)) {
-            const cell = document.getElementById(`cell-${key}`);
-            if (cell && item.count > 0 && !myCourses[key]) {
-              if (item.has_mine) cell.classList.add('has-mine');
-              const div = document.createElement('div');
-              div.className = 'heatmap-content';
-              item.categories.forEach(cat => {
-                const span = document.createElement('span');
-                span.className = 'heatmap-icon';
-                span.textContent = CATEGORY_ICONS[cat] || '✨';
-                div.appendChild(span);
+          // ヒートマップモードならアイコンクリアはしない（色つけのみ）
+          // 通常モードならアイコン描画
+          if(!isHeatmapMode) {
+              document.querySelectorAll('.slot-cell').forEach(c => { 
+                 c.innerHTML = '';
+                 c.style.backgroundColor = 'transparent';
+                 c.classList.remove('has-mine'); 
               });
-              cell.appendChild(div);
-            }
+    
+              for (const [key, item] of Object.entries(data)) {
+                const cell = document.getElementById(`cell-${key}`);
+                if (cell && item.count > 0 && !myCourses[key]) {
+                  if (item.has_mine) cell.classList.add('has-mine');
+                  const div = document.createElement('div');
+                  div.className = 'heatmap-content';
+                  item.categories.forEach(cat => {
+                    const span = document.createElement('span');
+                    span.className = 'heatmap-icon';
+                    span.textContent = CATEGORY_ICONS[cat] || '✨';
+                    div.appendChild(span);
+                  });
+                  cell.appendChild(div);
+                }
+              }
           }
       } catch(e) { console.error("ヒートマップ読み込みエラー", e); }
+    }
+
+    // ▼▼▼ 追加: 現在時刻の判定とハイライト ▼▼▼
+    function highlightCurrentTime() {
+        // 全セルのハイライト解除
+        document.querySelectorAll('.current-slot').forEach(el => el.classList.remove('current-slot'));
+
+        const now = new Date();
+        const currentDayIndex = now.getDay(); // 0(Sun) - 6(Sat)
+        // 月=1, 金=5. 日(0)や土(6)は無視 (簡易実装)
+        if (currentDayIndex < 1 || currentDayIndex > 5) return;
+
+        // 表示中の週が「今週」かチェック
+        const todayStr = now.toDateString();
+        // currentWeekStart(月曜)と今日の日付差分で判定
+        const diffDays = Math.floor((now - currentWeekStart) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0 || diffDays > 4) return; // 表示週が今週でない
+
+        const daysMap = ['日','月','火','水','木','金','土'];
+        const currentDayChar = daysMap[currentDayIndex];
+        
+        // 時刻を分単位に変換
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+        for (let p = 1; p <= maxPeriod; p++) {
+            const def = periodDefinitions[p];
+            const [sh, sm] = def.start.split(':').map(Number);
+            const [eh, em] = def.end.split(':').map(Number);
+            const startM = sh * 60 + sm;
+            const endM = eh * 60 + em;
+
+            if (nowMinutes >= startM && nowMinutes <= endM) {
+                const cellId = `cell-${currentDayChar}-${p}`;
+                const cell = document.getElementById(cellId);
+                if (cell) cell.classList.add('current-slot');
+                break; // 1つのコマしか該当しないはず
+            }
+        }
+    }
+
+    // ▼▼▼ 追加: 空きユーザーヒートマップの切り替え ▼▼▼
+    async function toggleFreeHeatmap() {
+        const btn = document.getElementById('heatmapToggleBtn');
+        isHeatmapMode = !isHeatmapMode;
+        
+        if (isHeatmapMode) {
+            btn.classList.add('active');
+            btn.textContent = "👥 空き状況マップ: ON";
+            
+            // データを取得して色を塗る
+            try {
+                const res = await fetch(`${API}/weekly_free_heatmap`);
+                const data = await res.json();
+                const total = data.total_users || 1; // 0除算防止
+                
+                for (const [key, count] of Object.entries(data.data)) {
+                    const cell = document.getElementById(`cell-${key}`);
+                    // 授業があるセルや、セルが存在しない場合はスキップ
+                    if (!cell || myCourses[key]) continue;
+                    
+                    // 割合計算 (少ない=薄い, 多い=濃い緑)
+                    const ratio = Math.min(1.0, count / total);
+                    // 色の濃さを調整 (最低0.1, 最大0.6くらいが見やすい)
+                    const alpha = 0.1 + (ratio * 0.5);
+                    
+                    // アイコンを一時的に非表示にするか、背景色だけ変えるか
+                    // ここでは背景色を変える
+                    cell.style.backgroundColor = `rgba(76, 175, 80, ${alpha})`;
+                    cell.title = `空き: 約${count}人`; // ホバーで人数表示
+                }
+            } catch(e) { console.error(e); alert('データ取得失敗'); isHeatmapMode = false; }
+        } else {
+            btn.classList.remove('active');
+            btn.textContent = "👥 空き状況マップ: OFF";
+            // スタイルリセット & 通常ヒートマップ(アイコン)再読み込み
+            document.querySelectorAll('.slot-cell').forEach(c => {
+                c.style.backgroundColor = 'transparent';
+                c.title = '';
+            });
+            loadHeatmap(); // アイコン復帰
+        }
     }
 
     async function showTicker(e, day, slot) {
@@ -344,7 +443,6 @@
       const popup = document.getElementById('tickerPopup');
       const text = document.getElementById('tickerText');
       
-      // スマホではタップ位置ではなくセルの位置に合わせたい場合も考慮
       const rect = e.target.getBoundingClientRect();
       popup.style.left = (rect.left + window.scrollX) + 'px';
       popup.style.top = (rect.top + window.scrollY - 45) + 'px';
@@ -364,7 +462,6 @@
 
     function hideTicker() { 
         document.getElementById('tickerPopup').style.display = 'none';
-        // ▼▼▼ 新規追加: ポップアップ状態をリセット ▼▼▼
         activePopupKey = null;
     }
 
@@ -373,7 +470,7 @@
       currentSelected = { day, slot }; 
       
       const modal = document.getElementById('recruitmentModal');
-      document.getElementById('recModalTitle').textContent = `${day}曜 ${slot}限 の募集`;
+      document.getElementById('recModalTitle').textContent = `${day}曜 ${getSlotLabel(slot)} の募集`;
       const listDiv = document.getElementById('modalRecList');
       listDiv.innerHTML = '読み込み中...';
       
