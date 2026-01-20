@@ -354,8 +354,9 @@ def insert_demo_data(conn, num_users, days_range, num_guests):
 
         params = (creator, title, category, max_part, location, date_str, day_jp, start_slot, end_slot)
         
+        # ▼▼▼ 修正箇所: Postgresなら ? を %s に置換 ▼▼▼
         if TARGET_DB_URL:
-            cur.execute(insert_sql, params)
+            cur.execute(insert_sql.replace('?', '%s'), params)
             recruitment_ids.append(cur.fetchone()[0])
         else:
             cur.execute(insert_sql, params)
