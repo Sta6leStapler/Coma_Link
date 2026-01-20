@@ -552,6 +552,36 @@ def get_free_users():
     
     return jsonify({"count": free_count})
 
+# 週全体の空き状況を一括取得するAPI (ヒートマップ用)
+@app.route("/weekly_free_heatmap", methods=["GET"])
+def weekly_free_heatmap():
+    db = get_db()
+    
+    # 1. 全ユーザー数を取得
+    cur = db.execute("SELECT COUNT(*) AS cnt FROM users")
+    total_users = cur.fetchone()['cnt']
+
+    # 2. 授業が入っている数(busy)を曜日・コマごとに集計
+    # coursesテーブルは曜日(day)とコマ(slot)で管理されている前提
+    cur = db.execute("""
+        SELECT day, slot, COUNT(DISTINCT username) as busy_count
+        FROM courses
+        GROUP BY day, slot
+    """)
+    busy_data = cur.fetchall()
+
+    # 3. データ整形 ( { "月-1": 15, "月-2": 10... } )
+    heatmap = {}
+    for row in busy_data:
+        key = f"{row['day']}-{row['slot']}"
+        free_count = max(0, total_users - row['busy_count'])
+        heatmap[key] = free_count
+
+    return jsonify({
+        "total_users": total_users,
+        "data": heatmap
+    })
+
 # 新規追加: マイページ用データ取得
 @app.route("/my_page_data", methods=["GET"])
 def get_my_page_data():
